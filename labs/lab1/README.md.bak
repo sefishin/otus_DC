@@ -1,13 +1,15 @@
-### Проектирование адресного пространства CLOS
+### Router-on-a-Stick Inter-VLAN Routing
 
 ### Цели
-- Part 1: Собрать схему CLOS
-- Part 2: Распределить адресное пространство
-
+- Part 1: Build the Network and Configure Basic Device Settings
+- Part 2: Create VLANs and Assign Switch Ports
+- Part 3: Configure an 802.1Q Trunk between the Switches
+- Part 4: Configure Inter-VLAN Routing on the Router
+- Part 5: Verify Inter-VLAN Routing is working
 
 ### Реализовать схему
 
-![img_1](router_on_a_stick_scheme.png)
+![img_19.png](router_on_a_stick_scheme.png)
 
 ### Таблица адресов
 
