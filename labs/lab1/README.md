@@ -58,22 +58,22 @@ Spine2|Lo1|10.0.2.0/32|
 -|Eth1|10.2.2.0/31|Link to Leaf1|
 -|Eth2|10.2.2.2/31|Link to Leaf2|
 -|Eth3|10.2.2.4/31|Link to Leaf3|
-Leaf1|Lo1|10.0.3.0/32|
--|Lo2|10.1.3.0/32|
+Leaf1|Lo1|10.0.0.1/32|
+-|Lo2|10.1.0.1/32|
 -|Eth1|10.2.1.1/31|Link to Spine1|
 -|Eth2|10.2.2.1/31|Link to Spine2|
--|Eth3|10.4.3.1/16|Service1|
-Leaf2|Lo1|10.0.4.0/32|
--|Lo2|10.1.4.0/32|
+-|Eth3|10.4.0.1/16|Service1|
+Leaf2|Lo1|10.0.0.2/32|
+-|Lo2|10.1.0.2/32|
 -|Eth1|10.2.1.3/31|Link to Spine1|
 -|Eth2|10.2.2.3/31|Link to Spine2|
--|Eth3|10.5.4.1/16|Service2|
-Leaf3|Lo1|10.0.5.0/32|
--|Lo2|10.1.5.0/32|
+-|Eth3|10.5.0.2/16|Service2|
+Leaf3|Lo1|10.0.0.3/32|
+-|Lo2|10.1.0.3/32|
 -|Eth1|10.2.1.5/31|Link to Spine1|
 -|Eth2|10.2.2.5/31|Link to Spine2|
--|Eth3|10.6.5.1/16|Service3|
--|Eth4|10.7.5.1/16|Service4|
+-|Eth3|10.6.0.3/16|Service3|
+-|Eth4|10.7.0.3/16|Service4|
 
 #### 2.4 Пример настройки узла
 
