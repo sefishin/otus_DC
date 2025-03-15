@@ -7,7 +7,7 @@
 
 ### Реализовать схему
 
-![img_1](router_on_a_stick_scheme.png)
+![img_1](Scheme_Clos.png)
 
 ### Таблица адресов
 
