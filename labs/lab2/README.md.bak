@@ -2,13 +2,13 @@
 
 ### Цель
 
-- Настроить OSPF для Underlay сети
+- Настроить OSPF для Underlay сети для IP связанности между всеми сетевыми устройствами.
 
 ## Задачи
 
-- Настроить OSPF в Underlay сети, для IP связанности между всеми сетевыми устройствами.
-- Зафиксировать адресное пространство, схему сети, конфигурацию устройств
-- Убедиться в наличии IP связанности между устройствами в OSFP домене
+- Настроить OSPF на устройствах стенда.
+- Зафиксировать адресное пространство, схему сети, конфигурацию устройств.
+- Убедиться в наличии IP связанности между устройствами в OSFP домене.
 
 
 
@@ -55,7 +55,7 @@ Spine-1(config)#exit
 
 Остальные устройства настроены анаогично, везде настроена OSPF area 0. 
 
-На лифах дополнительн сети сервисов прописаны в network:
+На лифах дополнительно сети сервисов прописаны в network:
 
 ```
 Leaf-1(config)#router ospf 100
@@ -72,7 +72,6 @@ Leaf-1(config-router-ospf)#end
 Spine1
 
 ```
-Spine-1#sh ru
 ! Command: show running-config
 ! device: Spine-1 (vEOS-lab, EOS-4.29.2F)
 !
@@ -120,9 +119,11 @@ interface Loopback0
 !
 interface Loopback1
    ip address 10.0.1.0/32
+   ip ospf area 0.0.0.0
 !
 interface Loopback2
    ip address 10.1.1.0/32
+   ip ospf area 0.0.0.0
 !
 interface Management1
 !
@@ -141,6 +142,7 @@ end
 Spine2
 
 ```
+Spine2#sh ru
 ! Command: show running-config
 ! device: Spine2 (vEOS-lab, EOS-4.29.2F)
 !
@@ -186,9 +188,11 @@ interface Ethernet8
 !
 interface Loopback1
    ip address 10.0.2.0/32
+   ip ospf area 0.0.0.0
 !
 interface Loopback2
    ip address 10.1.2.0/32
+   ip ospf area 0.0.0.0
 !
 interface Management1
 !
@@ -202,6 +206,7 @@ router ospf 100
    max-lsa 12000
 !
 end
+
 
 ```
 Leaf1
@@ -574,11 +579,15 @@ Gateway of last resort is not set
                                via 10.2.2.0, Ethernet2
  O        10.0.0.3/32 [110/30] via 10.2.1.0, Ethernet1
                                via 10.2.2.0, Ethernet2
+ O        10.0.1.0/32 [110/20] via 10.2.1.0, Ethernet1
+ O        10.0.2.0/32 [110/20] via 10.2.2.0, Ethernet2
  C        10.0.3.0/32 is directly connected, Loopback1
  O        10.1.0.2/32 [110/30] via 10.2.1.0, Ethernet1
                                via 10.2.2.0, Ethernet2
  O        10.1.0.3/32 [110/30] via 10.2.1.0, Ethernet1
                                via 10.2.2.0, Ethernet2
+ O        10.1.1.0/32 [110/20] via 10.2.1.0, Ethernet1
+ O        10.1.2.0/32 [110/20] via 10.2.2.0, Ethernet2
  C        10.1.3.0/32 is directly connected, Loopback2
  C        10.2.1.0/31 is directly connected, Ethernet1
  O        10.2.1.2/31 [110/20] via 10.2.1.0, Ethernet1
@@ -605,11 +614,15 @@ Gateway of last resort is not set
  C        10.0.0.2/32 is directly connected, Loopback1
  O        10.0.0.3/32 [110/30] via 10.2.1.2, Ethernet1
                                via 10.2.2.2, Ethernet2
+ O        10.0.1.0/32 [110/20] via 10.2.1.2, Ethernet1
+ O        10.0.2.0/32 [110/20] via 10.2.2.2, Ethernet2
  O        10.0.3.0/32 [110/30] via 10.2.1.2, Ethernet1
                                via 10.2.2.2, Ethernet2
  C        10.1.0.2/32 is directly connected, Loopback2
  O        10.1.0.3/32 [110/30] via 10.2.1.2, Ethernet1
                                via 10.2.2.2, Ethernet2
+ O        10.1.1.0/32 [110/20] via 10.2.1.2, Ethernet1
+ O        10.1.2.0/32 [110/20] via 10.2.2.2, Ethernet2
  O        10.1.3.0/32 [110/30] via 10.2.1.2, Ethernet1
                                via 10.2.2.2, Ethernet2
  O        10.2.1.0/31 [110/20] via 10.2.1.2, Ethernet1
@@ -625,7 +638,6 @@ Gateway of last resort is not set
                                via 10.2.2.2, Ethernet2
  O        10.7.0.0/16 [110/30] via 10.2.1.2, Ethernet1
                                via 10.2.2.2, Ethernet2
-
 
 ```
 
@@ -657,8 +669,31 @@ Gateway of last resort is not set
 
 
 ```
-Ping VPC2, VPC3, VPC4 с VPC1:
+Ping VPC2, VPC3, VPC4 с машины VPC1:
 
 ```
+VPCS> ping 10.5.0.100
+
+84 bytes from 10.5.0.100 icmp_seq=1 ttl=61 time=106.447 ms
+84 bytes from 10.5.0.100 icmp_seq=2 ttl=61 time=31.555 ms
+84 bytes from 10.5.0.100 icmp_seq=3 ttl=61 time=35.474 ms
+84 bytes from 10.5.0.100 icmp_seq=4 ttl=61 time=31.781 ms
+84 bytes from 10.5.0.100 icmp_seq=5 ttl=61 time=96.806 ms
+
+VPCS> ping 10.6.0.100
+
+84 bytes from 10.6.0.100 icmp_seq=1 ttl=61 time=82.501 ms
+84 bytes from 10.6.0.100 icmp_seq=2 ttl=61 time=44.211 ms
+84 bytes from 10.6.0.100 icmp_seq=3 ttl=61 time=50.197 ms
+84 bytes from 10.6.0.100 icmp_seq=4 ttl=61 time=27.734 ms
+84 bytes from 10.6.0.100 icmp_seq=5 ttl=61 time=31.171 ms
+
+VPCS> ping 10.7.0.100
+
+84 bytes from 10.7.0.100 icmp_seq=1 ttl=61 time=48.251 ms
+84 bytes from 10.7.0.100 icmp_seq=2 ttl=61 time=36.471 ms
+84 bytes from 10.7.0.100 icmp_seq=3 ttl=61 time=44.042 ms
+84 bytes from 10.7.0.100 icmp_seq=4 ttl=61 time=75.808 ms
+84 bytes from 10.7.0.100 icmp_seq=5 ttl=61 time=100.756 ms
 
 ```
