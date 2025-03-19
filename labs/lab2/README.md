@@ -1,29 +1,46 @@
-### Проектирование адресного пространства CLOS
+### Underlay. OSPF
 
-### Цели
-- Part 1: Собрать схему CLOS
+### Цель
 
-![img_1](Scheme_Clos.png)
+- Настроить OSPF для Underlay сети
 
-- Part 2: Распределить адресное пространство
+## Задачи
 
+- Настроить OSPF в Underlay сети, для IP связанности между всеми сетевыми устройствами.
+- Зафиксировать адресное пространство, схему сети, конфигурацию устройств
+- Убедиться в наличии IP связанности между устройствами в OSFP домене
 
 ### 1. Подготовка стенда
 
-Добавление устройств в EVE-NG и последующая коммутация согласно схемы из задания:
+Схема из адресный план из ДЗ№1:
 
 ![img_2](Scheme_Eve.png)
 
-### 2.1 Логика распределения адресов:
+### 2. Настройка устройств
+
+На каждом устройстве произведена настройка адресации согласно плана:
+
 ```
-DCN: 10.8*(N-1).0.0/13
-N = [1 .. 32]
-Lo1: 10.8*(N-1).0.0/16 
-Lo2: 10.8*(N-1)+1.0.0/16 
-p2p links: 10.8*(N-1)+2.0.0/16 
-резерв: 10.8*(N-1)+3.0.0/16 
-services: 10.8*(N-1)+[4..7].0.0/16
+Spine-1#
+Spine-1#conf t
+Spine-1(config)#interface Ethernet1
+Spine-1(config-if-Et1)#   no switchport
+Spine-1(config-if-Et1)#   ip address 10.2.1.0/31
+Spine-1(config-if-Et1)#interface Ethernet2
+Spine-1(config-if-Et2)#   no switchport
+Spine-1(config-if-Et2)#   ip address 10.2.1.2/31
+Spine-1(config-if-Et2)#interface Ethernet3
+Spine-1(config-if-Et3)#   no switchport
+Spine-1(config-if-Et3)#   ip address 10.2.1.4/31
+Spine-1(config-if-Et3)#interface Loopback1
+Spine-1(config-if-Lo1)#   ip address 10.0.1.0/32
+Spine-1(config-if-Lo1)#interface Loopback2
+Spine-1(config-if-Lo2)#   ip address 10.1.1.0/32
 ```
+
+Включен роутинг и настроен OSPF
+
+
 ### 2.2 Распределение DC1
 ```
 DC1: 10.0.0.0/13
