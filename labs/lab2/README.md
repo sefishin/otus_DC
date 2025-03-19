@@ -65,7 +65,7 @@ Leaf-1(config-router-ospf)#end
 
 ### 2.1 Схема стенда
 
-![img_2](Scheme_Eve.png)
+![img_2](Scheme_Eve_ip.png)
 
 ### 2.2 Конфигурации устройств
 
