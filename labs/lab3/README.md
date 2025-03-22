@@ -1,9 +1,6 @@
 ### Underlay. IS-IS
 
 
-Настроите ISIS в Underlay сети, для IP связанности между всеми сетевыми устройствами.
-Зафиксируете в документации - план работы, адресное пространство, схему сети, конфигурацию устройств
-Убедитесь в наличии IP связанности между устройствами в ISIS домене
 ### Цель
 
 - Настроить IS-IS в Underlay сети для IP связанности между всеми сетевыми устройствами.
@@ -17,7 +14,11 @@
 
 ### 1. Настройка устройств
 
-На каждом устройстве произведена настройка адресации согласно плана из ДЗ №1. 
+Схема стенда из ДЗ №1:
+
+![img_2](Scheme_Eve_ip.png)
+
+На каждом устройстве произведена настройка адресации согласно плана из ДЗ №1: 
 
 |Device|Interface|IP Address|Description|
 |---|---|---|---|
@@ -48,42 +49,37 @@ Leaf3|Lo1|10.0.0.3/32|
 -|Eth3|10.6.0.3/16|Service3|
 -|Eth4|10.7.0.3/16|Service4|
 
-Включен роутинг и настроен ISIS на интерфейсах между маршрутизаторами и лупбеках:
+ISIS наcтроен и включен на всех интерфейсах. Network Entity Title основан на адресе Loopback1. 
+
+Пример настройки Spine2:
 
 ```
-Spine-1(config)#ip routing
-Spine-1(config)#router ospf 100
-Spine-1(config-router-ospf)#passive-interface default
-Spine-1(config-router-ospf)#no passive-interface ethernet 1-3
-Spine-1(config-router-ospf)#interface ethernet 1-3
-Spine-1(config-if-Et1-3)#ip ospf area 0
-Spine-1(config-if-Et1-3)#ip ospf network point-to-point
-Spine-1(config-if-Et1-3)#exit
-Spine-1(config)#interface loopback 1-2
-Spine-1(config-if-Lo1-2)#ip ospf area 0
-Spine-1(config-if-Lo1-2)#exit
-Spine-1(config)#exit
-```
-
-Остальные устройства настроены анаогично, везде настроена OSPF area 0. 
-
-На лифах дополнительно сети сервисов прописаны в network:
+Spine2(config)#router isis DC1
+Spine2(config-router-isis)#net 49.0001.0100.0000.2000.00
+Spine2(config-router-isis)#is-type level-1
+Spine2(config-router-isis)#address-family ipv4 unicast
+Spine2(config-router-isis-af)#exit
+Spine2(config-router-isis)#exit
+Spine2(config)#interface eth1-3
+Spine2(config-if-Et1-3)#isis enable DC1
+Spine2(config-if-Et1-3)#exit
+Spine2(config)#interface loopback 1-2
+Spine2(config-if-Lo1-2)#isis enable DC1
+Spine2(config-if-Lo1-2)#end
+Spine2#write
+Copy completed successfully.
 
 ```
-Leaf-1(config)#router ospf 100
-Leaf-1(config-router-ospf)#network 10.4.0.0/16 area 0
-Leaf-1(config-router-ospf)#end
-```
 
-### 2.1 Схема стенда
+Остальные устройства настроены анаогично, все находятся в одной зоне и настроены как L1. 
 
-![img_2](Scheme_Eve_ip.png)
 
 ### 2.2 Конфигурации устройств
 
 Spine1
 
 ```
+Spine-1#sh ru
 ! Command: show running-config
 ! device: Spine-1 (vEOS-lab, EOS-4.29.2F)
 !
@@ -102,20 +98,17 @@ spanning-tree mode mstp
 interface Ethernet1
    no switchport
    ip address 10.2.1.0/31
-   ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Ethernet2
    no switchport
    ip address 10.2.1.2/31
-   ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Ethernet3
    no switchport
    ip address 10.2.1.4/31
-   ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Ethernet4
 !
@@ -131,22 +124,21 @@ interface Loopback0
 !
 interface Loopback1
    ip address 10.0.1.0/32
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Loopback2
    ip address 10.1.1.0/32
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Management1
 !
 ip routing
 !
-router ospf 100
-   passive-interface default
-   no passive-interface Ethernet1
-   no passive-interface Ethernet2
-   no passive-interface Ethernet3
-   max-lsa 12000
+router isis DC1
+   net 49.0001.0100.0000.1000.00
+   is-type level-1
+   !
+   address-family ipv4 unicast
 !
 end
 
@@ -154,7 +146,6 @@ end
 Spine2
 
 ```
-Spine2#sh ru
 ! Command: show running-config
 ! device: Spine2 (vEOS-lab, EOS-4.29.2F)
 !
@@ -173,20 +164,17 @@ spanning-tree mode mstp
 interface Ethernet1
    no switchport
    ip address 10.2.2.0/31
-   ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Ethernet2
    no switchport
    ip address 10.2.2.2/31
-   ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Ethernet3
    no switchport
    ip address 10.2.2.4/31
-   ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Ethernet4
 !
@@ -200,31 +188,28 @@ interface Ethernet8
 !
 interface Loopback1
    ip address 10.0.2.0/32
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Loopback2
    ip address 10.1.2.0/32
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Management1
 !
 ip routing
 !
-router ospf 100
-   passive-interface default
-   no passive-interface Ethernet1
-   no passive-interface Ethernet2
-   no passive-interface Ethernet3
-   max-lsa 12000
+router isis DC1
+   net 49.0001.0100.0000.2000.00
+   is-type level-1
+   !
+   address-family ipv4 unicast
 !
 end
-
 
 ```
 Leaf1
 
 ```
-Leaf-1#sh ru | exclude logging
 ! Command: show running-config
 ! device: Leaf-1 (vEOS-lab, EOS-4.29.2F)
 !
@@ -253,8 +238,7 @@ interface Ethernet1
    ipv6 enable
    ipv6 address auto-config
    ipv6 nd ra rx accept default-route
-   ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Ethernet2
    speed 100g-2
@@ -263,8 +247,7 @@ interface Ethernet2
    ipv6 enable
    ipv6 address auto-config
    ipv6 nd ra rx accept default-route
-   ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Ethernet3
    speed 100g-2
@@ -273,8 +256,7 @@ interface Ethernet3
    ipv6 enable
    ipv6 address auto-config
    ipv6 nd ra rx accept default-route
-   ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Ethernet4
    speed 100g-2
@@ -313,11 +295,11 @@ interface Ethernet8
 !
 interface Loopback1
    ip address 10.0.3.0/32
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Loopback2
    ip address 10.1.3.0/32
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Management1
    speed 10full
@@ -330,12 +312,11 @@ ip routing
 system control-plane
    no service-policy input copp-system-policy
 !
-router ospf 100
-   passive-interface default
-   no passive-interface Ethernet1
-   no passive-interface Ethernet2
-   network 10.4.0.0/16 area 0.0.0.0
-   max-lsa 12000
+router isis DC1
+   net 49.0001.0100.0000.0001.00
+   is-type level-1
+   !
+   address-family ipv4 unicast
 !
 end
 
@@ -344,7 +325,6 @@ end
 Leaf2
 
 ```
-Leaf-2#sh ru | exclude logging
 ! Command: show running-config
 ! device: Leaf-2 (vEOS-lab, EOS-4.29.2F)
 !
@@ -373,8 +353,7 @@ interface Ethernet1
    ipv6 enable
    ipv6 address auto-config
    ipv6 nd ra rx accept default-route
-   ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Ethernet2
    no switchport
@@ -382,8 +361,7 @@ interface Ethernet2
    ipv6 enable
    ipv6 address auto-config
    ipv6 nd ra rx accept default-route
-   ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Ethernet3
    speed 200g-4
@@ -392,6 +370,7 @@ interface Ethernet3
    ipv6 enable
    ipv6 address auto-config
    ipv6 nd ra rx accept default-route
+   isis enable DC1
 !
 interface Ethernet4
    speed 200g-4
@@ -430,11 +409,11 @@ interface Ethernet8
 !
 interface Loopback1
    ip address 10.0.0.2/32
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Loopback2
    ip address 10.1.0.2/32
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Management1
    speed 100full
@@ -447,12 +426,11 @@ ip routing
 system control-plane
    no service-policy input copp-system-policy
 !
-router ospf 100
-   passive-interface default
-   no passive-interface Ethernet1
-   no passive-interface Ethernet2
-   network 10.5.0.0/16 area 0.0.0.0
-   max-lsa 12000
+router isis DC1
+   net 49.0001.0100.0000.0002.00
+   is-type level-1
+   !
+   address-family ipv4 unicast
 !
 end
 
@@ -461,7 +439,6 @@ end
 Leaf3
 
 ```
-Leaf-3#sh ru | exclude logging
 ! Command: show running-config
 ! device: Leaf-3 (vEOS-lab, EOS-4.29.2F)
 !
@@ -490,8 +467,7 @@ interface Ethernet1
    ipv6 enable
    ipv6 address auto-config
    ipv6 nd ra rx accept default-route
-   ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Ethernet2
    no switchport
@@ -499,8 +475,7 @@ interface Ethernet2
    ipv6 enable
    ipv6 address auto-config
    ipv6 nd ra rx accept default-route
-   ip ospf network point-to-point
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Ethernet3
    speed 100g-2
@@ -509,6 +484,7 @@ interface Ethernet3
    ipv6 enable
    ipv6 address auto-config
    ipv6 nd ra rx accept default-route
+   isis enable DC1
 !
 interface Ethernet4
    speed 100g-2
@@ -517,6 +493,7 @@ interface Ethernet4
    ipv6 enable
    ipv6 address auto-config
    ipv6 nd ra rx accept default-route
+   isis enable DC1
 !
 interface Ethernet5
    speed 100g-2
@@ -548,11 +525,11 @@ interface Ethernet8
 !
 interface Loopback1
    ip address 10.0.0.3/32
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Loopback2
    ip address 10.1.0.3/32
-   ip ospf area 0.0.0.0
+   isis enable DC1
 !
 interface Management1
    speed 10full
@@ -565,16 +542,13 @@ ip routing
 system control-plane
    no service-policy input copp-system-policy
 !
-router ospf 100
-   passive-interface default
-   no passive-interface Ethernet1
-   no passive-interface Ethernet2
-   network 10.6.0.0/16 area 0.0.0.0
-   network 10.7.0.0/16 area 0.0.0.0
-   max-lsa 12000
+router isis DC1
+   net 49.0001.0100.0000.0003.00
+   is-type level-1
+   !
+   address-family ipv4 unicast
 !
 end
-
 
 ```
 
@@ -583,109 +557,91 @@ end
 Маршруты на Leaf1
 
 ```
-Leaf-1#sh ip route
+Leaf-1#sh ip route isis
 
-Gateway of last resort is not set
+ I L1     10.0.0.2/32 [115/30] via 10.2.1.0, Ethernet1
+                               via 10.2.2.0, Ethernet2
+ I L1     10.0.0.3/32 [115/30] via 10.2.1.0, Ethernet1
+                               via 10.2.2.0, Ethernet2
+ I L1     10.0.1.0/32 [115/20] via 10.2.1.0, Ethernet1
+ I L1     10.0.2.0/32 [115/20] via 10.2.2.0, Ethernet2
+ I L1     10.1.0.2/32 [115/30] via 10.2.1.0, Ethernet1
+                               via 10.2.2.0, Ethernet2
+ I L1     10.1.0.3/32 [115/30] via 10.2.1.0, Ethernet1
+                               via 10.2.2.0, Ethernet2
+ I L1     10.1.1.0/32 [115/20] via 10.2.1.0, Ethernet1
+ I L1     10.1.2.0/32 [115/20] via 10.2.2.0, Ethernet2
+ I L1     10.2.1.2/31 [115/20] via 10.2.1.0, Ethernet1
+ I L1     10.2.1.4/31 [115/20] via 10.2.1.0, Ethernet1
+ I L1     10.2.2.2/31 [115/20] via 10.2.2.0, Ethernet2
+ I L1     10.2.2.4/31 [115/20] via 10.2.2.0, Ethernet2
+ I L1     10.5.0.0/16 [115/30] via 10.2.1.0, Ethernet1
+                               via 10.2.2.0, Ethernet2
+ I L1     10.6.0.0/16 [115/30] via 10.2.1.0, Ethernet1
+                               via 10.2.2.0, Ethernet2
+ I L1     10.7.0.0/16 [115/30] via 10.2.1.0, Ethernet1
+                               via 10.2.2.0, Ethernet2
 
- O        10.0.0.2/32 [110/30] via 10.2.1.0, Ethernet1
-                               via 10.2.2.0, Ethernet2
- O        10.0.0.3/32 [110/30] via 10.2.1.0, Ethernet1
-                               via 10.2.2.0, Ethernet2
- O        10.0.1.0/32 [110/20] via 10.2.1.0, Ethernet1
- O        10.0.2.0/32 [110/20] via 10.2.2.0, Ethernet2
- C        10.0.3.0/32 is directly connected, Loopback1
- O        10.1.0.2/32 [110/30] via 10.2.1.0, Ethernet1
-                               via 10.2.2.0, Ethernet2
- O        10.1.0.3/32 [110/30] via 10.2.1.0, Ethernet1
-                               via 10.2.2.0, Ethernet2
- O        10.1.1.0/32 [110/20] via 10.2.1.0, Ethernet1
- O        10.1.2.0/32 [110/20] via 10.2.2.0, Ethernet2
- C        10.1.3.0/32 is directly connected, Loopback2
- C        10.2.1.0/31 is directly connected, Ethernet1
- O        10.2.1.2/31 [110/20] via 10.2.1.0, Ethernet1
- O        10.2.1.4/31 [110/20] via 10.2.1.0, Ethernet1
- C        10.2.2.0/31 is directly connected, Ethernet2
- O        10.2.2.2/31 [110/20] via 10.2.2.0, Ethernet2
- O        10.2.2.4/31 [110/20] via 10.2.2.0, Ethernet2
- C        10.4.0.0/16 is directly connected, Ethernet3
- O        10.5.0.0/16 [110/30] via 10.2.1.0, Ethernet1
-                               via 10.2.2.0, Ethernet2
- O        10.6.0.0/16 [110/30] via 10.2.1.0, Ethernet1
-                               via 10.2.2.0, Ethernet2
- O        10.7.0.0/16 [110/30] via 10.2.1.0, Ethernet1
-                               via 10.2.2.0, Ethernet2
 
 ```
 
 Маршруты на Leaf2
 
 ```
+Leaf-2#sh ip route isis
 
-Gateway of last resort is not set
+ I L1     10.0.0.3/32 [115/30] via 10.2.1.2, Ethernet1
+                               via 10.2.2.2, Ethernet2
+ I L1     10.0.1.0/32 [115/20] via 10.2.1.2, Ethernet1
+ I L1     10.0.2.0/32 [115/20] via 10.2.2.2, Ethernet2
+ I L1     10.0.3.0/32 [115/30] via 10.2.1.2, Ethernet1
+                               via 10.2.2.2, Ethernet2
+ I L1     10.1.0.3/32 [115/30] via 10.2.1.2, Ethernet1
+                               via 10.2.2.2, Ethernet2
+ I L1     10.1.1.0/32 [115/20] via 10.2.1.2, Ethernet1
+ I L1     10.1.2.0/32 [115/20] via 10.2.2.2, Ethernet2
+ I L1     10.1.3.0/32 [115/30] via 10.2.1.2, Ethernet1
+                               via 10.2.2.2, Ethernet2
+ I L1     10.2.1.0/31 [115/20] via 10.2.1.2, Ethernet1
+ I L1     10.2.1.4/31 [115/20] via 10.2.1.2, Ethernet1
+ I L1     10.2.2.0/31 [115/20] via 10.2.2.2, Ethernet2
+ I L1     10.2.2.4/31 [115/20] via 10.2.2.2, Ethernet2
+ I L1     10.4.0.0/16 [115/30] via 10.2.1.2, Ethernet1
+                               via 10.2.2.2, Ethernet2
+ I L1     10.6.0.0/16 [115/30] via 10.2.1.2, Ethernet1
+                               via 10.2.2.2, Ethernet2
+ I L1     10.7.0.0/16 [115/30] via 10.2.1.2, Ethernet1
+                               via 10.2.2.2, Ethernet2
 
- C        10.0.0.2/32 is directly connected, Loopback1
- O        10.0.0.3/32 [110/30] via 10.2.1.2, Ethernet1
-                               via 10.2.2.2, Ethernet2
- O        10.0.1.0/32 [110/20] via 10.2.1.2, Ethernet1
- O        10.0.2.0/32 [110/20] via 10.2.2.2, Ethernet2
- O        10.0.3.0/32 [110/30] via 10.2.1.2, Ethernet1
-                               via 10.2.2.2, Ethernet2
- C        10.1.0.2/32 is directly connected, Loopback2
- O        10.1.0.3/32 [110/30] via 10.2.1.2, Ethernet1
-                               via 10.2.2.2, Ethernet2
- O        10.1.1.0/32 [110/20] via 10.2.1.2, Ethernet1
- O        10.1.2.0/32 [110/20] via 10.2.2.2, Ethernet2
- O        10.1.3.0/32 [110/30] via 10.2.1.2, Ethernet1
-                               via 10.2.2.2, Ethernet2
- O        10.2.1.0/31 [110/20] via 10.2.1.2, Ethernet1
- C        10.2.1.2/31 is directly connected, Ethernet1
- O        10.2.1.4/31 [110/20] via 10.2.1.2, Ethernet1
- O        10.2.2.0/31 [110/20] via 10.2.2.2, Ethernet2
- C        10.2.2.2/31 is directly connected, Ethernet2
- O        10.2.2.4/31 [110/20] via 10.2.2.2, Ethernet2
- O        10.4.0.0/16 [110/30] via 10.2.1.2, Ethernet1
-                               via 10.2.2.2, Ethernet2
- C        10.5.0.0/16 is directly connected, Ethernet3
- O        10.6.0.0/16 [110/30] via 10.2.1.2, Ethernet1
-                               via 10.2.2.2, Ethernet2
- O        10.7.0.0/16 [110/30] via 10.2.1.2, Ethernet1
-                               via 10.2.2.2, Ethernet2
 
 ```
 
 Маршруты на Leaf3
 
 ```
-Gateway of last resort is not set
+Leaf-3#sh ip ro isis
 
 
- O        10.0.0.2/32 [110/30] via 10.2.1.4, Ethernet1
+ I L1     10.0.0.2/32 [115/30] via 10.2.1.4, Ethernet1
                                via 10.2.2.4, Ethernet2
- C        10.0.0.3/32 is directly connected, Loopback1
- O        10.0.1.0/32 [110/20] via 10.2.1.4, Ethernet1
- O        10.0.2.0/32 [110/20] via 10.2.2.4, Ethernet2
- O        10.0.3.0/32 [110/30] via 10.2.1.4, Ethernet1
+ I L1     10.0.1.0/32 [115/20] via 10.2.1.4, Ethernet1
+ I L1     10.0.2.0/32 [115/20] via 10.2.2.4, Ethernet2
+ I L1     10.0.3.0/32 [115/30] via 10.2.1.4, Ethernet1
                                via 10.2.2.4, Ethernet2
- O        10.1.0.2/32 [110/30] via 10.2.1.4, Ethernet1
+ I L1     10.1.0.2/32 [115/30] via 10.2.1.4, Ethernet1
                                via 10.2.2.4, Ethernet2
- C        10.1.0.3/32 is directly connected, Loopback2
- O        10.1.1.0/32 [110/20] via 10.2.1.4, Ethernet1
- O        10.1.2.0/32 [110/20] via 10.2.2.4, Ethernet2
- O        10.1.3.0/32 [110/30] via 10.2.1.4, Ethernet1
+ I L1     10.1.1.0/32 [115/20] via 10.2.1.4, Ethernet1
+ I L1     10.1.2.0/32 [115/20] via 10.2.2.4, Ethernet2
+ I L1     10.1.3.0/32 [115/30] via 10.2.1.4, Ethernet1
                                via 10.2.2.4, Ethernet2
- O        10.2.1.0/31 [110/20] via 10.2.1.4, Ethernet1
- O        10.2.1.2/31 [110/20] via 10.2.1.4, Ethernet1
- C        10.2.1.4/31 is directly connected, Ethernet1
- O        10.2.2.0/31 [110/20] via 10.2.2.4, Ethernet2
- O        10.2.2.2/31 [110/20] via 10.2.2.4, Ethernet2
- C        10.2.2.4/31 is directly connected, Ethernet2
- O        10.4.0.0/16 [110/30] via 10.2.1.4, Ethernet1
+ I L1     10.2.1.0/31 [115/20] via 10.2.1.4, Ethernet1
+ I L1     10.2.1.2/31 [115/20] via 10.2.1.4, Ethernet1
+ I L1     10.2.2.0/31 [115/20] via 10.2.2.4, Ethernet2
+ I L1     10.2.2.2/31 [115/20] via 10.2.2.4, Ethernet2
+ I L1     10.4.0.0/16 [115/30] via 10.2.1.4, Ethernet1
                                via 10.2.2.4, Ethernet2
- O        10.5.0.0/16 [110/30] via 10.2.1.4, Ethernet1
+ I L1     10.5.0.0/16 [115/30] via 10.2.1.4, Ethernet1
                                via 10.2.2.4, Ethernet2
- C        10.6.0.0/16 is directly connected, Ethernet3
- C        10.7.0.0/16 is directly connected, Ethernet4
-
 
 ```
 Ping VPC2, VPC3, VPC4 с машины VPC1:

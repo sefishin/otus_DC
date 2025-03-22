@@ -1,9 +1,6 @@
 ### Underlay. IS-IS
 
 
-Настроите ISIS в Underlay сети, для IP связанности между всеми сетевыми устройствами.
-Зафиксируете в документации - план работы, адресное пространство, схему сети, конфигурацию устройств
-Убедитесь в наличии IP связанности между устройствами в ISIS домене
 ### Цель
 
 - Настроить IS-IS в Underlay сети для IP связанности между всеми сетевыми устройствами.
@@ -17,7 +14,11 @@
 
 ### 1. Настройка устройств
 
-На каждом устройстве произведена настройка адресации согласно плана из ДЗ №1. 
+Схема стенда из ДЗ №1:
+
+![img_2](Scheme_Eve_ip.png)
+
+На каждом устройстве произведена настройка адресации согласно плана из ДЗ №1: 
 
 |Device|Interface|IP Address|Description|
 |---|---|---|---|
@@ -48,24 +49,30 @@ Leaf3|Lo1|10.0.0.3/32|
 -|Eth3|10.6.0.3/16|Service3|
 -|Eth4|10.7.0.3/16|Service4|
 
-Включен роутинг и настроен OSPF на интерфейсах между маршрутизаторами и лупбеках:
+ISIS наcтроен и включен на всех интерфейсах. Network Entity Title основан на адресе Loopback1. 
+
+Пример настройки Spine2.
 
 ```
-Spine-1(config)#ip routing
-Spine-1(config)#router ospf 100
-Spine-1(config-router-ospf)#passive-interface default
-Spine-1(config-router-ospf)#no passive-interface ethernet 1-3
-Spine-1(config-router-ospf)#interface ethernet 1-3
-Spine-1(config-if-Et1-3)#ip ospf area 0
-Spine-1(config-if-Et1-3)#ip ospf network point-to-point
-Spine-1(config-if-Et1-3)#exit
-Spine-1(config)#interface loopback 1-2
-Spine-1(config-if-Lo1-2)#ip ospf area 0
-Spine-1(config-if-Lo1-2)#exit
-Spine-1(config)#exit
+Spine2(config)#router isis DC1
+Spine2(config-router-isis)#net 49.0001.0100.0000.2000.00
+Spine2(config-router-isis)#is-type level-1
+Spine2(config-router-isis)#address-family ipv4 unicast
+Spine2(config-router-isis-af)#exit
+Spine2(config-router-isis)#exit
+Spine2(config)#interface eth1-3
+Spine2(config-if-Et1-3)#isis enable DC1
+Spine2(config-if-Et1-3)#exit
+Spine2(config)#interface loopback 1-2
+Spine2(config-if-Lo1-2)#no ip ospf area 0.0.0.0
+Spine2(config-if-Lo1-2)#isis enable DC1
+Spine2(config-if-Lo1-2)#end
+Spine2#write
+Copy completed successfully.
+
 ```
 
-Остальные устройства настроены анаогично, везде настроена OSPF area 0. 
+Остальные устройства настроены анаогично, все устройства находятся в одной зоне и настроены как L1. 
 
 На лифах дополнительно сети сервисов прописаны в network:
 
@@ -75,9 +82,7 @@ Leaf-1(config-router-ospf)#network 10.4.0.0/16 area 0
 Leaf-1(config-router-ospf)#end
 ```
 
-### 2.1 Схема стенда
 
-![img_2](Scheme_Eve_ip.png)
 
 ### 2.2 Конфигурации устройств
 
