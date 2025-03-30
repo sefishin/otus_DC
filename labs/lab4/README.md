@@ -1,4 +1,4 @@
-### Underlay. BGP
+### Underlay. iBGP
 
 
 ### Цель

@@ -51,10 +51,10 @@ Leaf3|Lo1|10.0.0.3/32|
 
 iBGP наcтроен на всех устройствах.
 
-• На спайнах настроен Route-Reflector и фильтрация prefix-list
-• Везде настроен multipath для ECMP
-• Везде на интерфейсах настроен BFD
-• На лифах настроена редистрибуция подключенных сетей
+* На спайнах настроен Route-Reflector и фильтрация prefix-list
+* Везде настроен multipath для ECMP
+* Везде на интерфейсах настроен BFD
+* На лифах настроена редистрибуция подключенных сетей
 
 Пример настройки Spine1:
 
@@ -697,4 +697,51 @@ VPCS> ping 10.7.0.100
 84 bytes from 10.7.0.100 icmp_seq=4 ttl=61 time=75.808 ms
 84 bytes from 10.7.0.100 icmp_seq=5 ttl=61 time=100.756 ms
 
+```
+
+Проверка ECMP:
+Leaf-3#sh ip bgp
+```
+BGP routing table information for VRF default
+Router identifier 10.0.0.3, local AS number 65100
+Route status codes: * - valid, > - active, # - not installed, E - ECMP head, e - ECMP
+                    S - Stale, c - Contributing to ECMP, b - backup, L - labeled-unicast
+Origin codes: i - IGP, e - EGP, ? - incomplete
+AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
+
+         Network                Next Hop            Metric  LocPref Weight  Path
+ * >Ec   10.0.0.1/32            10.2.2.4              0       100     0       i Or-ID: 10.0.0.1 C-LST: 10.0.2.0
+ *  ec   10.0.0.1/32            10.2.1.4              0       100     0       i Or-ID: 10.0.0.1 C-LST: 10.0.1.0
+ * >Ec   10.0.0.2/32            10.2.2.4              0       100     0       i Or-ID: 10.0.0.2 C-LST: 10.0.2.0
+ *  ec   10.0.0.2/32            10.2.1.4              0       100     0       i Or-ID: 10.0.0.2 C-LST: 10.0.1.0
+ * >     10.0.0.3/32            -                     0       0       -       i
+ * >Ec   10.1.0.1/32            10.2.2.4              0       100     0       i Or-ID: 10.0.0.1 C-LST: 10.0.2.0
+ *  ec   10.1.0.1/32            10.2.1.4              0       100     0       i Or-ID: 10.0.0.1 C-LST: 10.0.1.0
+ * >Ec   10.1.0.2/32            10.2.2.4              0       100     0       i Or-ID: 10.0.0.2 C-LST: 10.0.2.0
+ *  ec   10.1.0.2/32            10.2.1.4              0       100     0       i Or-ID: 10.0.0.2 C-LST: 10.0.1.0
+ * >     10.1.0.3/32            -                     0       0       -       i
+ * >     10.2.1.4/31            -                     1       0       -       i
+ * >     10.2.2.4/31            -                     1       0       -       i
+ * >Ec   10.4.0.0/16            10.2.2.4              0       100     0       i Or-ID: 10.0.0.1 C-LST: 10.0.2.0
+ *  ec   10.4.0.0/16            10.2.1.4              0       100     0       i Or-ID: 10.0.0.1 C-LST: 10.0.1.0
+ * >Ec   10.5.0.0/16            10.2.2.4              0       100     0       i Or-ID: 10.0.0.2 C-LST: 10.0.2.0
+ *  ec   10.5.0.0/16            10.2.1.4              0       100     0       i Or-ID: 10.0.0.2 C-LST: 10.0.1.0
+ * >     10.6.0.0/16            -                     1       0       -       i
+ * >     10.7.0.0/16            -                     1       0       -       i
+```
+
+Проверка BFD:
+```
+Leaf-1#sh bfd peers
+VRF name: default
+-----------------
+DstAddr       MyDisc    YourDisc  Interface/Transport    Type           LastUp
+--------- ----------- ----------- -------------------- ------- ----------------
+10.2.1.0  4095099468   504676901        Ethernet1(13)  normal   03/23/25 16:58
+10.2.2.0  2133840112  4225652655        Ethernet2(14)  normal   03/30/25 18:07
+
+         LastDown            LastDiag    State
+-------------------- ------------------- -----
+   03/23/25 16:50       No Diagnostic       Up
+               NA       No Diagnostic       Up
 ```
