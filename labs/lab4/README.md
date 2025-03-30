@@ -55,6 +55,7 @@ iBGP наcтроен на всех устройствах.
 * Везде настроен multipath для ECMP
 * Везде настроен BFD
 * На лифах настроена редистрибуция подключенных сетей
+* Настроены таймеры Keepalive = 3 sec , Hold Timer = 9 sec 
 
 Пример настройки Spine1:
 
@@ -70,6 +71,7 @@ Spine-1(config-router-bgp)#   neighbor PEERS remote-as 65100
 Spine-1(config-router-bgp)#   neighbor PEERS next-hop-self
 Spine-1(config-router-bgp)#   neighbor PEERS bfd
 Spine-1(config-router-bgp)#   neighbor PEERS route-reflector-client
+Spine-1(config-router-bgp)#   neighbor PEERS timers 3 9
 Spine-1(config-router-bgp)#   neighbor 10.2.1.1 peer group PEERS
 Spine-1(config-router-bgp)#   neighbor 10.2.1.3 peer group PEERS
 Spine-1(config-router-bgp)#   neighbor 10.2.1.5 peer group PEERS
@@ -88,6 +90,7 @@ Leaf-1(config-router-bgp)#   maximum-paths 10
 Leaf-1(config-router-bgp)#   neighbor PEERS peer group
 Leaf-1(config-router-bgp)#   neighbor PEERS remote-as 65100
 Leaf-1(config-router-bgp)#   neighbor PEERS bfd
+Leaf-1(config-router-bgp)#   neighbor PEERS timers 3 9
 Leaf-1(config-router-bgp)#   neighbor 10.2.1.0 peer group PEERS
 Leaf-1(config-router-bgp)#   neighbor 10.2.2.0 peer group PEERS
 Leaf-1(config-router-bgp)#   redistribute connected
@@ -161,6 +164,7 @@ router bgp 65100
    neighbor PEERS remote-as 65100
    neighbor PEERS next-hop-self
    neighbor PEERS bfd
+   neighbor PEERS timers 3 9
    neighbor PEERS route-reflector-client
    neighbor 10.2.1.1 peer group PEERS
    neighbor 10.2.1.3 peer group PEERS
@@ -232,6 +236,7 @@ router bgp 65100
    neighbor PEERS peer group
    neighbor PEERS remote-as 65100
    neighbor PEERS next-hop-self
+   neighbor PEERS timers 3 9
    neighbor PEERS route-reflector-client
    neighbor 10.2.2.1 peer group PEERS
    neighbor 10.2.2.3 peer group PEERS
@@ -350,6 +355,7 @@ router bgp 65100
    neighbor PEERS peer group
    neighbor PEERS remote-as 65100
    neighbor PEERS bfd
+   neighbor PEERS timers 3 9
    neighbor 10.2.1.0 peer group PEERS
    neighbor 10.2.2.0 peer group PEERS
    redistribute connected
@@ -464,6 +470,7 @@ router bgp 65100
    neighbor PEERS peer group
    neighbor PEERS remote-as 65100
    neighbor PEERS bfd
+   neighbor PEERS timers 3 9
    neighbor 10.2.1.2 peer group PEERS
    neighbor 10.2.2.2 peer group PEERS
    redistribute connected
@@ -579,6 +586,7 @@ router bgp 65100
    neighbor PEERS peer group
    neighbor PEERS remote-as 65100
    neighbor PEERS bfd
+   neighbor PEERS timers 3 9
    neighbor 10.2.1.4 peer group PEERS
    neighbor 10.2.2.4 peer group PEERS
    redistribute connected
