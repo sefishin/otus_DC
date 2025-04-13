@@ -18,7 +18,7 @@
 
 ![img_2](Scheme_Eve_ip.jpg)
 
-В качестве коммутаторов - Nexus 9000v. На каждом устройстве произведена настройка адресации согласно плана: 
+В качестве коммутаторов - Nexus 9000v. На устройствах произведена настройка адресации согласно плана: 
 
 |Device|Interface|IP Address|Description|
 |---|---|---|---|
@@ -36,7 +36,7 @@ Leaf2|Lo0|2.2.2.2/32|
 
 Для ip-связности по Loopback-адресам настроен OSPF:
 
-Пример Leaf-1
+ Leaf-1
 ```
 router ospf 1
 router-id 1.1.1.1
@@ -45,6 +45,27 @@ ip router ospf 1 area 0
 int loopback 0
 ip router ospf 1 area 0
 ```
+Spine-1
+```
+interface Ethernet1/1
+  ip address 10.2.1.0/31
+  ip ospf network point-to-point
+  ip router ospf 1 area 0.0.0.0
+  no shutdown
+
+interface Ethernet1/2
+  ip address 10.2.1.2/31
+  ip ospf network point-to-point
+  ip router ospf 1 area 0.0.0.0
+  no shutdown
+
+interface loopback0
+  ip address 11.11.11.11/32
+  ip router ospf 1 area 0.0.0.0
+router ospf 1
+  router-id 11.11.11.11
+```
+
 Далее на Loopback-интерфейсах строится iBGP:
 
 Leaf-1
