@@ -448,23 +448,7 @@ n) segid: 100 tunnelid: 0x2020202 encap: VXLAN
 
 ```
 
-Leaf-1# sh ip arp vrf TEST
-```
-Flags: * - Adjacencies learnt on non-active FHRP router
-       + - Adjacencies synced via CFSoE
-       # - Adjacencies Throttled for Glean
-       CP - Added via L2RIB, Control plane Adjacencies
-       PS - Added via L2RIB, Peer Sync
-       RO - Re-Originated Peer Sync Entry
-       D - Static Adjacencies attached to down interface
 
-IP ARP Table for context TEST
-Total number of entries: 2
-Address         Age       MAC Address     Interface       Flags
-192.168.10.10   00:02:52  0050.7966.68e5  Vlan10
-192.168.20.10   00:03:56  0050.7966.68eb  Vlan20
-
-```
 Таблица Host Mobility Manager
 ```
 Leaf-1# sh fabric forwarding ip local-host-db vrf TEST
