@@ -14,42 +14,27 @@
 
 ### 1. Предварительные условия
 
-Схема стенда из ДЗ №1:
+Схема стенда:
 
-![img_2](Scheme_Eve_ip.png)
+![img_2](Scheme_Eve_ip.jpg)
 
-На каждом устройстве произведена настройка адресации согласно плана из ДЗ №1: 
+В качестве коммутаторов Nexus 9000v. На каждом устройстве произведена настройка адресации согласно плана: 
 
 |Device|Interface|IP Address|Description|
 |---|---|---|---|
 Spine1|Lo1|10.0.1.0/32|
--|Lo2|10.1.1.0/32|
+-|Lo0|11.11.11.11/32|
 -|Eth1|10.2.1.0/31|Link to Leaf1|
 -|Eth2|10.2.1.2/31|Link to Leaf2|
--|Eth3|10.2.1.4/31|Link to Leaf3|
-Spine2|Lo1|10.0.2.0/32|
--|Lo2|10.1.2.0/32|
--|Eth1|10.2.2.0/31|Link to Leaf1|
--|Eth2|10.2.2.2/31|Link to Leaf2|
--|Eth3|10.2.2.4/31|Link to Leaf3|
-Leaf1|Lo1|10.0.0.1/32|
--|Lo2|10.1.0.1/32|
+Leaf1|Lo0|1.1.1.1/32|
 -|Eth1|10.2.1.1/31|Link to Spine1|
--|Eth2|10.2.2.1/31|Link to Spine2|
--|Eth3|10.4.0.1/16|Service1|
-Leaf2|Lo1|10.0.0.2/32|
--|Lo2|10.1.0.2/32|
+-|Eth2|Switchport|Link to Host|
+Leaf2|Lo0|2.2.2.2/32|
 -|Eth1|10.2.1.3/31|Link to Spine1|
--|Eth2|10.2.2.3/31|Link to Spine2|
--|Eth3|10.5.0.2/16|Service2|
-Leaf3|Lo1|10.0.0.3/32|
--|Lo2|10.1.0.3/32|
--|Eth1|10.2.1.5/31|Link to Spine1|
--|Eth2|10.2.2.5/31|Link to Spine2|
--|Eth3|10.6.0.3/16|Service3|
--|Eth4|10.7.0.3/16|Service4|
+-|Eth2|Switchport|Link to Host|
 
-iBGP наcтроен на всех устройствах.
+
+Для ip-связности по Loopback-адресам настроен OSPF:
 
 * На спайнах настроен Route-Reflector и фильтрация prefix-list
 * Везде настроен multipath для ECMP
