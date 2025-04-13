@@ -32,278 +32,290 @@ Leaf2|Lo0|2.2.2.2/32|
 -|Eth1|10.2.1.3/31|Link to Spine1|
 -|Eth2|Switchport|Link to Host|
 
+### 2.1 Настройка маршрутизации
 
 Для ip-связности по Loopback-адресам настроен OSPF:
 
-* На спайнах настроен Route-Reflector и фильтрация prefix-list
-* Везде настроен multipath для ECMP
-* Везде настроен BFD
-* На лифах настроена редистрибуция подключенных сетей
-* Настроены таймеры Keepalive = 3 sec , Hold Timer = 9 sec 
+Пример Leaf-1
+```
+router ospf 1
+router-id 1.1.1.1
+int eth1/1
+ip router ospf 1 area 0
+int loopback 0
+ip router ospf 1 area 0
+```
+Далее на Loopback-интерфейсах строится iBGP:
 
+Leaf-1
+```
+ router bgp 65000
+  address-family l2vpn evpn
+  neighbor 11.11.11.11
+    remote-as 65000
+    update-source loopback0
+    address-family l2vpn evpn
+      send-community
+      send-community extended
+
+```
+Spine-1
+
+```
+router bgp 65000
+  address-family l2vpn evpn
+  neighbor 1.1.1.1
+    remote-as 65000
+    update-source loopback0
+    address-family l2vpn evpn
+      send-community
+      send-community extended
+  neighbor 2.2.2.2
+    remote-as 65000
+    update-source loopback0
+    address-family l2vpn evpn
+      send-community
+      send-community extended
+      route-reflector-client
+```
 
 ### 2.2 Настройка VxLAN EVPN
+
+Остальные настройки производятся на лифах. Настраиваются VLAN, VRF, NVE интерфейсы:
+
+```
+Leaf-1(config)# vlan 10
+Leaf-1(config-vlan)# vn-segment 10010
+Leaf-1(config-vlan)# exit
+Leaf-1(config)# feature fabric forwarding
+Leaf-1(config)# fabric forwarding anycast-gateway-mac 0000.0000.0001
+Leaf-1(config)# vlan 100
+Leaf-1(config-vlan)# vn-segment 100
+Leaf-1(config)# vrf context TEST
+Leaf-1(config-vrf)# rd auto
+Leaf-1(config-vrf)# vni 100
+Leaf-1(config-vrf)# address-family ipv4 unicast
+Leaf-1(config-vrf-af-ipv4)# route-target both auto evpn
+Leaf-1(config-vrf-af-ipv4)# route-target both auto
+Leaf-1(config-vrf-af-ipv4)# exit
+Leaf-1(config)# int vlan 100
+Leaf-1(config-if)# no shutdown
+Leaf-1(config-if)# vrf member TEST
+Leaf-1(config-if)# ip forward
+Leaf-1(config-if)# exit
+Leaf-1(config)# int vlan 10
+Leaf-1(config-if)# no sh
+Leaf-1(config-if)# vrf member TEST
+Leaf-1(config-if)# ip address 192.168.10.1/24
+Leaf-1(config-if)# fabric forwarding mode anycast-gateway
+
+
+Leaf-1(config-if)# int nve 1
+Leaf-1(config-if-nve)# no sh
+Leaf-1(config-if-nve)# source-interface loopback 0
+Leaf-1(config-if-nve)# host-reachability protocol bgp
+Leaf-1(config-if-nve)# member vni 10010
+Leaf-1(config-if-nve-vni)# ingress-replication protocol bgp
+Leaf-1(config-if-nve-vni)# exit
+Leaf-1(config-if-nve)# member vni 100 associate-vrf
+Leaf-1(config-if-nve-vni)# exit
+```
+
+
+### 2.3 ПОлные конфигурации устройств
 
 Spine1
 
 ```
-S! device: Spine-1 (vEOS-lab, EOS-4.29.2F)
-!
-! boot system flash:/vEOS-lab.swi
-!
-no aaa root
-!
-transceiver qsfp default-mode 4x10G
-!
-service routing protocols model ribd
-!
-hostname Spine-1
-!
-spanning-tree mode mstp
-!
-interface Ethernet1
-   no switchport
-   ip address 10.2.1.0/31
-   bfd static neighbor 10.2.1.1
-!
-interface Ethernet2
-   no switchport
-   ip address 10.2.1.2/31
-!
-interface Ethernet3
-   no switchport
-   ip address 10.2.1.4/31
-!
-interface Ethernet4
-!
-interface Ethernet5
-!
-interface Ethernet6
-!
-interface Ethernet7
-!
-interface Ethernet8
-!
-interface Loopback0
-!
-interface Loopback1
-   ip address 10.0.1.0/32
-!
-interface Loopback2
-   ip address 10.1.1.0/32
-!
-interface Management1
-!
-ip routing
-!
-ip prefix-list DENY seq 10 deny 10.2.2.0/29 le 32
-ip prefix-list DENY seq 20 deny 10.2.1.0/29 le 32
-ip prefix-list DENY seq 40 permit 0.0.0.0/0 le 32
-!
-router bgp 65100
-   router-id 10.0.1.0
-   maximum-paths 10
-   neighbor PEERS peer group
-   neighbor PEERS remote-as 65100
-   neighbor PEERS next-hop-self
-   neighbor PEERS bfd
-   neighbor PEERS timers 3 9
-   neighbor PEERS route-reflector-client
-   neighbor 10.2.1.1 peer group PEERS
-   neighbor 10.2.1.3 peer group PEERS
-   neighbor 10.2.1.5 peer group PEERS
-   !
-   address-family ipv4
-      neighbor PEERS prefix-list DENY out
-!
-end
+version 9.3(1) Bios:version
+switchname Spine-1
+vdc Spine-1 id 1
+  limit-resource vlan minimum 16 maximum 4094
+  limit-resource vrf minimum 2 maximum 4096
+  limit-resource port-channel minimum 0 maximum 511
+  limit-resource u4route-mem minimum 248 maximum 248
+  limit-resource u6route-mem minimum 96 maximum 96
+  limit-resource m4route-mem minimum 58 maximum 58
+  limit-resource m6route-mem minimum 8 maximum 8
+
+no feature ssh
+nv overlay evpn
+feature ospf
+feature bgp
+feature nv overlay
+
+no password strength-check
+username admin password 5 $5$W0y86Dzq$VYqcG2rmHXwwsRgeGsDANo0IkJiGypiqbg.szV0Mt9
+9  role network-admin
+ip domain-lookup
+no system default switchport
+snmp-server user admin network-admin auth md5 0x72a08c95012f25aad4ac2eff6e974ef1
+ priv 0x72a08c95012f25aad4ac2eff6e974ef1 localizedkey
+rmon event 1 description FATAL(1) owner PMON@FATAL
+rmon event 2 description CRITICAL(2) owner PMON@CRITICAL
+rmon event 3 description ERROR(3) owner PMON@ERROR
+rmon event 4 description WARNING(4) owner PMON@WARNING
+rmon event 5 description INFORMATION(5) owner PMON@INFO
+
+vlan 1
+
+vrf context management
+
+interface Ethernet1/1
+  ip address 10.2.1.0/31
+  ip ospf network point-to-point
+  ip router ospf 1 area 0.0.0.0
+  no shutdown
+
+interface Ethernet1/2
+  ip address 10.2.1.2/31
+  ip ospf network point-to-point
+  ip router ospf 1 area 0.0.0.0
+  no shutdown
+
+interface Ethernet1/3
+
+...
+
+interface Ethernet1/128
+
+interface mgmt0
+  vrf member management
+
+interface loopback0
+  ip address 11.11.11.11/32
+  ip router ospf 1 area 0.0.0.0
+line console
+line vty
+router ospf 1
+  router-id 11.11.11.11
+router bgp 65000
+  address-family l2vpn evpn
+  neighbor 1.1.1.1
+    remote-as 65000
+    update-source loopback0
+    address-family l2vpn evpn
+      send-community
+      send-community extended
+  neighbor 2.2.2.2
+    remote-as 65000
+    update-source loopback0
+    address-family l2vpn evpn
+      send-community
+      send-community extended
+      route-reflector-client
 
 
-```
-Spine2
-
-```
-!! device: Spine2 (vEOS-lab, EOS-4.29.2F)
-!
-! boot system flash:/vEOS-lab.swi
-!
-no aaa root
-!
-transceiver qsfp default-mode 4x10G
-!
-service routing protocols model ribd
-!
-hostname Spine2
-!
-spanning-tree mode mstp
-!
-interface Ethernet1
-   no switchport
-   ip address 10.2.2.0/31
-!
-interface Ethernet2
-   no switchport
-   ip address 10.2.2.2/31
-!
-interface Ethernet3
-   no switchport
-   ip address 10.2.2.4/31
-!
-interface Ethernet4
-!
-interface Ethernet5
-!
-interface Ethernet6
-!
-interface Ethernet7
-!
-interface Ethernet8
-!
-interface Loopback1
-   ip address 10.0.2.0/32
-!
-interface Loopback2
-   ip address 10.1.2.0/32
-!
-interface Management1
-!
-ip routing
-!
-ip prefix-list DENY seq 10 deny 10.2.2.0/29 le 32
-ip prefix-list DENY seq 20 deny 10.2.1.0/29 le 32
-ip prefix-list DENY seq 30 permit 0.0.0.0/0 le 32
-!
-router bgp 65100
-   router-id 10.0.1.0
-   maximum-paths 10
-   neighbor PEERS peer group
-   neighbor PEERS remote-as 65100
-   neighbor PEERS next-hop-self
-   neighbor PEERS timers 3 9
-   neighbor PEERS route-reflector-client
-   neighbor 10.2.2.1 peer group PEERS
-   neighbor 10.2.2.3 peer group PEERS
-   neighbor 10.2.2.5 peer group PEERS
-   !
-   address-family ipv4
-      neighbor PEERS prefix-list DENY out
-!
-end
 
 ```
+
 Leaf1
 
 ```
-! Command: show running-config
-! device: Leaf-1 (vEOS-lab, EOS-4.29.2F)
-!
-! boot system flash:/vEOS-lab.swi
-!
-no aaa root
-!
-switchport default mode routed
-!
-transceiver qsfp default-mode 4x10G
-!
-service routing protocols model ribd
-!
-!
-!
-match-list input string ztpFilter
-   10 match regex ETH-4
-!
-hostname Leaf-1
-!
-spanning-tree mode mstp
-!
-interface Ethernet1
-   no switchport
-   ip address 10.2.1.1/31
-   bfd static neighbor 10.2.1.0
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet2
-   speed 100g-2
-   no switchport
-   ip address 10.2.2.1/31
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet3
-   speed 100g-2
-   no switchport
-   ip address 10.4.0.1/16
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet4
-   speed 100g-2
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet5
-   speed 100g-2
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet6
-   speed 100g-2
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet7
-   speed 100g-2
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet8
-   speed 100g-2
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Loopback1
-   ip address 10.0.0.1/32
-!
-interface Loopback2
-   ip address 10.1.0.1/32
-!
-interface Management1
-   speed 10full
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-ip routing
-!
-system control-plane
-   no service-policy input copp-system-policy
-!
-router bgp 65100
-   router-id 10.0.0.1
-   maximum-paths 10
-   neighbor PEERS peer group
-   neighbor PEERS remote-as 65100
-   neighbor PEERS bfd
-   neighbor PEERS timers 3 9
-   neighbor 10.2.1.0 peer group PEERS
-   neighbor 10.2.2.0 peer group PEERS
-   redistribute connected
-!
-end
+version 9.3(1) Bios:version
+switchname Leaf-1
+vdc Leaf-1 id 1
+  limit-resource vlan minimum 16 maximum 4094
+  limit-resource vrf minimum 2 maximum 4096
+  limit-resource port-channel minimum 0 maximum 511
+  limit-resource u4route-mem minimum 248 maximum 248
+  limit-resource u6route-mem minimum 96 maximum 96
+  limit-resource m4route-mem minimum 58 maximum 58
+  limit-resource m6route-mem minimum 8 maximum 8
+
+no feature ssh
+nv overlay evpn
+feature ospf
+feature bgp
+feature fabric forwarding
+feature interface-vlan
+feature vn-segment-vlan-based
+feature nv overlay
+
+no password strength-check
+username admin password 5 $5$kIg7CrSN$gIjQQRaKfj3wihCghlc69z8zji6.RBlWIqat.xX2at
+C  role network-admin
+ip domain-lookup
+no system default switchport
+copp profile strict
+snmp-server user admin auth md5 0x899fa8779e43ff9f657e345fe48e5e72 priv 0x899fa8
+779e43ff9f657e345fe48e5e72 localizedkey engineID 128:0:0:9:3:80:48:52:2:204:0
+rmon event 1 description FATAL(1) owner PMON@FATAL
+rmon event 2 description CRITICAL(2) owner PMON@CRITICAL
+rmon event 3 description ERROR(3) owner PMON@ERROR
+rmon event 4 description WARNING(4) owner PMON@WARNING
+rmon event 5 description INFORMATION(5) owner PMON@INFO
+
+fabric forwarding anycast-gateway-mac 0000.0000.0001
+vlan 1,10,100
+vlan 10
+  vn-segment 10010
+vlan 100
+  vn-segment 100
+
+vrf context TEST
+  vni 100
+  rd auto
+  address-family ipv4 unicast
+    route-target both auto
+    route-target both auto evpn
+vrf context management
+
+interface Vlan1
+
+interface Vlan10
+  no shutdown
+  vrf member TEST
+  ip address 192.168.10.1/24
+  fabric forwarding mode anycast-gateway
+
+interface Vlan100
+  no shutdown
+  vrf member TEST
+  ip forward
+
+interface nve1
+  no shutdown
+  host-reachability protocol bgp
+  source-interface loopback0
+  member vni 100 associate-vrf
+  member vni 10010
+    ingress-replication protocol bgp
+
+interface Ethernet1/1
+  ip address 10.2.1.1/31
+  ip ospf network point-to-point
+  ip router ospf 1 area 0.0.0.0
+  no shutdown
+
+interface Ethernet1/2
+  switchport
+  switchport access vlan 10
+
+interface Ethernet1/3
+
+...
+
+interface Ethernet1/128
+
+interface mgmt0
+  vrf member management
+
+interface loopback0
+  ip address 1.1.1.1/32
+  ip router ospf 1 area 0.0.0.0
+line console
+line vty
+router ospf 1
+  router-id 1.1.1.1
+router bgp 65000
+  address-family l2vpn evpn
+  neighbor 11.11.11.11
+    remote-as 65000
+    update-source loopback0
+    address-family l2vpn evpn
+      send-community
+      send-community extended
 
 
 ```
@@ -311,388 +323,167 @@ end
 Leaf2
 
 ```
-! Command: show running-config
-! device: Leaf-2 (vEOS-lab, EOS-4.29.2F)
-!
-! boot system flash:/vEOS-lab.swi
-!
-no aaa root
-!
-switchport default mode routed
-!
-transceiver qsfp default-mode 4x10G
-!
-service routing protocols model ribd
-!
-!
-!
-match-list input string ztpFilter
-   10 match regex ETH-4
-!
-hostname Leaf-2
-!
-spanning-tree mode mstp
-!
-interface Ethernet1
-   no switchport
-   ip address 10.2.1.3/31
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet2
-   no switchport
-   ip address 10.2.2.3/31
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet3
-   speed 200g-4
-   no switchport
-   ip address 10.5.0.2/16
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet4
-   speed 200g-4
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet5
-   speed 200g-4
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet6
-   speed 200g-4
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet7
-   speed 200g-4
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet8
-   speed 200g-4
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Loopback1
-   ip address 10.0.0.2/32
-!
-interface Loopback2
-   ip address 10.1.0.2/32
-!
-interface Management1
-   speed 100full
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-ip routing
-!
-system control-plane
-   no service-policy input copp-system-policy
-!
-router bgp 65100
-   router-id 10.0.0.2
-   maximum-paths 10
-   neighbor PEERS peer group
-   neighbor PEERS remote-as 65100
-   neighbor PEERS bfd
-   neighbor PEERS timers 3 9
-   neighbor 10.2.1.2 peer group PEERS
-   neighbor 10.2.2.2 peer group PEERS
-   redistribute connected
-!
-end
+version 9.3(1) Bios:version
+switchname Leaf-2
+vdc Leaf-2 id 1
+  limit-resource vlan minimum 16 maximum 4094
+  limit-resource vrf minimum 2 maximum 4096
+  limit-resource port-channel minimum 0 maximum 511
+  limit-resource u4route-mem minimum 248 maximum 248
+  limit-resource u6route-mem minimum 96 maximum 96
+  limit-resource m4route-mem minimum 58 maximum 58
+  limit-resource m6route-mem minimum 8 maximum 8
+
+no feature ssh
+nv overlay evpn
+feature ospf
+feature bgp
+feature fabric forwarding
+feature interface-vlan
+feature vn-segment-vlan-based
+feature nv overlay
+
+no password strength-check
+username admin password 5 $5$xo.rexaD$ITvOJ.j6./AQdpu3w90daeHaW1fYL46KOlgVYmCn/P
+.  role network-admin
+ip domain-lookup
+no system default switchport
+snmp-server user admin network-admin auth md5 0x038347264d1f462ed75c0f2ce97b8564
+ priv 0x038347264d1f462ed75c0f2ce97b8564 localizedkey
+rmon event 1 description FATAL(1) owner PMON@FATAL
+rmon event 2 description CRITICAL(2) owner PMON@CRITICAL
+rmon event 3 description ERROR(3) owner PMON@ERROR
+rmon event 4 description WARNING(4) owner PMON@WARNING
+rmon event 5 description INFORMATION(5) owner PMON@INFO
+
+fabric forwarding anycast-gateway-mac 0000.0000.0001
+vlan 1,10,100
+vlan 10
+  vn-segment 10010
+vlan 100
+  vn-segment 100
+
+vrf context TEST
+  vni 100
+  rd auto
+  address-family ipv4 unicast
+    route-target both auto
+    route-target both auto evpn
+vrf context management
+
+interface Vlan1
+
+interface Vlan10
+  no shutdown
+  vrf member TEST
+  ip address 192.168.10.1/24
+  fabric forwarding mode anycast-gateway
+
+interface Vlan100
+  no shutdown
+  vrf member TEST
+  ip forward
+
+interface nve1
+  no shutdown
+  host-reachability protocol bgp
+  source-interface loopback0
+  member vni 100 associate-vrf
+  member vni 10010
+    ingress-replication protocol bgp
+
+interface Ethernet1/1
+  ip address 10.2.1.3/31
+  ip ospf network point-to-point
+  ip router ospf 1 area 0.0.0.0
+  no shutdown
+
+interface Ethernet1/2
+  switchport
+  switchport access vlan 10
+
+interface Ethernet1/3
+
+...
+
+interface Ethernet1/128
+
+interface mgmt0
+  vrf member management
+
+interface loopback0
+  ip address 2.2.2.2/32
+  ip router ospf 1 area 0.0.0.0
+line console
+line vty
+router ospf 1
+  router-id 2.2.2.2
+router bgp 65000
+  address-family l2vpn evpn
+  neighbor 11.11.11.11
+    remote-as 65000
+    update-source loopback0
+    address-family l2vpn evpn
+      send-community
+      send-community extended
 
 ```
 
-Leaf3
+### 3. Проверка L2-связности
+
+MAC-IP таблица на Leaf1
 
 ```
-! Command: show running-config
-! device: Leaf-3 (vEOS-lab, EOS-4.29.2F)
-!
-! boot system flash:/vEOS-lab.swi
-!
-no aaa root
-!
-switchport default mode routed
-!
-transceiver qsfp default-mode 4x10G
-!
-service routing protocols model ribd
-!
-!
-!
-match-list input string ztpFilter
-   10 match regex ETH-4
-!
-hostname Leaf-3
-!
-spanning-tree mode mstp
-!
-interface Ethernet1
-   no switchport
-   ip address 10.2.1.5/31
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet2
-   no switchport
-   ip address 10.2.2.5/31
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet3
-   speed 100g-2
-   no switchport
-   ip address 10.6.0.3/16
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet4
-   speed 100g-2
-   no switchport
-   ip address 10.7.0.3/16
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-   isis enable DC1
-!
-interface Ethernet5
-   speed 100g-2
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet6
-   speed 100g-2
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet7
-   speed 100g-2
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet8
-   speed 100g-2
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Loopback1
-   ip address 10.0.0.3/32
-!
-interface Loopback2
-   ip address 10.1.0.3/32
-!
-interface Management1
-   speed 10full
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-ip routing
-!
-system control-plane
-   no service-policy input copp-system-policy
-!
-router bgp 65100
-   router-id 10.0.0.3
-   maximum-paths 10
-   neighbor PEERS peer group
-   neighbor PEERS remote-as 65100
-   neighbor PEERS bfd
-   neighbor PEERS timers 3 9
-   neighbor 10.2.1.4 peer group PEERS
-   neighbor 10.2.2.4 peer group PEERS
-   redistribute connected
-!
-end
-
+Leaf-1# sh l2route mac-ip all
+Flags -(Rmac):Router MAC (Stt):Static (L):Local (R):Remote (V):vPC link
+(Dup):Duplicate (Spl):Split (Rcv):Recv(D):Del Pending (S):Stale (C):Clear
+(Ps):Peer Sync (Ro):Re-Originated (Orp):Orphan
+Topology    Mac Address    Host IP                                 Prod   Flags
+        Seq No     Next-Hops
+----------- -------------- --------------------------------------- ------ ------
+---- ---------- ---------------------------------------
+10          0050.7966.68e5 192.168.10.10                           HMM    L,  
+        0         Local
+10          0050.7966.68e6 192.168.10.20                           BGP    --  
+        0         2.2.2.2
 
 ```
 
-### 3. Проверка связности
-
-Маршруты на Leaf1
-
-```
-Gateway of last resort is not set
-
- C        10.0.0.1/32 is directly connected, Loopback1
- B I      10.0.0.2/32 [200/0] via 10.2.1.0, Ethernet1
-                              via 10.2.2.0, Ethernet2
- B I      10.0.0.3/32 [200/0] via 10.2.1.0, Ethernet1
-                              via 10.2.2.0, Ethernet2
- C        10.1.0.1/32 is directly connected, Loopback2
- B I      10.1.0.2/32 [200/0] via 10.2.1.0, Ethernet1
-                              via 10.2.2.0, Ethernet2
- B I      10.1.0.3/32 [200/0] via 10.2.1.0, Ethernet1
-                              via 10.2.2.0, Ethernet2
- C        10.2.1.0/31 is directly connected, Ethernet1
- C        10.2.2.0/31 is directly connected, Ethernet2
- C        10.4.0.0/16 is directly connected, Ethernet3
- B I      10.5.0.0/16 [200/0] via 10.2.1.0, Ethernet1
-                              via 10.2.2.0, Ethernet2
- B I      10.6.0.0/16 [200/0] via 10.2.1.0, Ethernet1
-                              via 10.2.2.0, Ethernet2
- B I      10.7.0.0/16 [200/0] via 10.2.1.0, Ethernet1
-                              via 10.2.2.0, Ethernet2
+MAC-IP таблица на Leaf2
 
 ```
 
-Маршруты на Leaf2
+Leaf-2# sh l2route mac-ip all
+Flags -(Rmac):Router MAC (Stt):Static (L):Local (R):Remote (V):vPC link
+(Dup):Duplicate (Spl):Split (Rcv):Recv(D):Del Pending (S):Stale (C):Clear
+(Ps):Peer Sync (Ro):Re-Originated (Orp):Orphan
+Topology    Mac Address    Host IP                                 Prod   Flags
+        Seq No     Next-Hops
+----------- -------------- --------------------------------------- ------ ------
+---- ---------- ---------------------------------------
+10          0050.7966.68e5 192.168.10.10                           BGP    --
+        0         1.1.1.1
+10          0050.7966.68e6 192.168.10.20                           HMM    L,
+        0         Local
 
 ```
 
-Gateway of last resort is not set
 
- B I      10.0.0.1/32 [200/0] via 10.2.1.2, Ethernet1
-                              via 10.2.2.2, Ethernet2
- C        10.0.0.2/32 is directly connected, Loopback1
- B I      10.0.0.3/32 [200/0] via 10.2.1.2, Ethernet1
-                              via 10.2.2.2, Ethernet2
- B I      10.1.0.1/32 [200/0] via 10.2.1.2, Ethernet1
-                              via 10.2.2.2, Ethernet2
- C        10.1.0.2/32 is directly connected, Loopback2
- B I      10.1.0.3/32 [200/0] via 10.2.1.2, Ethernet1
-                              via 10.2.2.2, Ethernet2
- C        10.2.1.2/31 is directly connected, Ethernet1
- C        10.2.2.2/31 is directly connected, Ethernet2
- B I      10.4.0.0/16 [200/0] via 10.2.1.2, Ethernet1
-                              via 10.2.2.2, Ethernet2
- C        10.5.0.0/16 is directly connected, Ethernet3
- B I      10.6.0.0/16 [200/0] via 10.2.1.2, Ethernet1
-                              via 10.2.2.2, Ethernet2
- B I      10.7.0.0/16 [200/0] via 10.2.1.2, Ethernet1
-                              via 10.2.2.2, Ethernet2
+Ping c VPC1 до VPC2 проходит в рамках одной подсети:
 
 ```
+VPCS> show
 
-Маршруты на Leaf3
+NAME   IP/MASK              GATEWAY                             GATEWAY
+VPCS1  192.168.10.10/24     0.0.0.0
+       fe80::250:79ff:fe66:68e5/64
 
-```
-Gateway of last resort is not set
+VPCS> ping 192.168.10.20
 
- B I      10.0.0.1/32 [200/0] via 10.2.1.4, Ethernet1
-                              via 10.2.2.4, Ethernet2
- B I      10.0.0.2/32 [200/0] via 10.2.1.4, Ethernet1
-                              via 10.2.2.4, Ethernet2
- C        10.0.0.3/32 is directly connected, Loopback1
- B I      10.1.0.1/32 [200/0] via 10.2.1.4, Ethernet1
-                              via 10.2.2.4, Ethernet2
- B I      10.1.0.2/32 [200/0] via 10.2.1.4, Ethernet1
-                              via 10.2.2.4, Ethernet2
- C        10.1.0.3/32 is directly connected, Loopback2
- C        10.2.1.4/31 is directly connected, Ethernet1
- C        10.2.2.4/31 is directly connected, Ethernet2
- B I      10.4.0.0/16 [200/0] via 10.2.1.4, Ethernet1
-                              via 10.2.2.4, Ethernet2
- B I      10.5.0.0/16 [200/0] via 10.2.1.4, Ethernet1
-                              via 10.2.2.4, Ethernet2
- C        10.6.0.0/16 is directly connected, Ethernet3
- C        10.7.0.0/16 is directly connected, Ethernet4
+84 bytes from 192.168.10.20 icmp_seq=1 ttl=64 time=26.708 ms
+84 bytes from 192.168.10.20 icmp_seq=2 ttl=64 time=22.684 ms
+84 bytes from 192.168.10.20 icmp_seq=3 ttl=64 time=23.020 ms
+84 bytes from 192.168.10.20 icmp_seq=4 ttl=64 time=32.076 ms
+^C
 
-```
-Ping VPC2, VPC3, VPC4 с машины VPC1:
-
-```
-VPCS> ping 10.5.0.100
-
-84 bytes from 10.5.0.100 icmp_seq=1 ttl=61 time=106.447 ms
-84 bytes from 10.5.0.100 icmp_seq=2 ttl=61 time=31.555 ms
-84 bytes from 10.5.0.100 icmp_seq=3 ttl=61 time=35.474 ms
-84 bytes from 10.5.0.100 icmp_seq=4 ttl=61 time=31.781 ms
-84 bytes from 10.5.0.100 icmp_seq=5 ttl=61 time=96.806 ms
-
-VPCS> ping 10.6.0.100
-
-84 bytes from 10.6.0.100 icmp_seq=1 ttl=61 time=82.501 ms
-84 bytes from 10.6.0.100 icmp_seq=2 ttl=61 time=44.211 ms
-84 bytes from 10.6.0.100 icmp_seq=3 ttl=61 time=50.197 ms
-84 bytes from 10.6.0.100 icmp_seq=4 ttl=61 time=27.734 ms
-84 bytes from 10.6.0.100 icmp_seq=5 ttl=61 time=31.171 ms
-
-VPCS> ping 10.7.0.100
-
-84 bytes from 10.7.0.100 icmp_seq=1 ttl=61 time=48.251 ms
-84 bytes from 10.7.0.100 icmp_seq=2 ttl=61 time=36.471 ms
-84 bytes from 10.7.0.100 icmp_seq=3 ttl=61 time=44.042 ms
-84 bytes from 10.7.0.100 icmp_seq=4 ttl=61 time=75.808 ms
-84 bytes from 10.7.0.100 icmp_seq=5 ttl=61 time=100.756 ms
-
-```
-
-Проверка ECMP:
-Leaf-3#sh ip bgp
-```
-BGP routing table information for VRF default
-Router identifier 10.0.0.3, local AS number 65100
-Route status codes: * - valid, > - active, # - not installed, E - ECMP head, e - ECMP
-                    S - Stale, c - Contributing to ECMP, b - backup, L - labeled-unicast
-Origin codes: i - IGP, e - EGP, ? - incomplete
-AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
-
-         Network                Next Hop            Metric  LocPref Weight  Path
- * >Ec   10.0.0.1/32            10.2.2.4              0       100     0       i Or-ID: 10.0.0.1 C-LST: 10.0.2.0
- *  ec   10.0.0.1/32            10.2.1.4              0       100     0       i Or-ID: 10.0.0.1 C-LST: 10.0.1.0
- * >Ec   10.0.0.2/32            10.2.2.4              0       100     0       i Or-ID: 10.0.0.2 C-LST: 10.0.2.0
- *  ec   10.0.0.2/32            10.2.1.4              0       100     0       i Or-ID: 10.0.0.2 C-LST: 10.0.1.0
- * >     10.0.0.3/32            -                     0       0       -       i
- * >Ec   10.1.0.1/32            10.2.2.4              0       100     0       i Or-ID: 10.0.0.1 C-LST: 10.0.2.0
- *  ec   10.1.0.1/32            10.2.1.4              0       100     0       i Or-ID: 10.0.0.1 C-LST: 10.0.1.0
- * >Ec   10.1.0.2/32            10.2.2.4              0       100     0       i Or-ID: 10.0.0.2 C-LST: 10.0.2.0
- *  ec   10.1.0.2/32            10.2.1.4              0       100     0       i Or-ID: 10.0.0.2 C-LST: 10.0.1.0
- * >     10.1.0.3/32            -                     0       0       -       i
- * >     10.2.1.4/31            -                     1       0       -       i
- * >     10.2.2.4/31            -                     1       0       -       i
- * >Ec   10.4.0.0/16            10.2.2.4              0       100     0       i Or-ID: 10.0.0.1 C-LST: 10.0.2.0
- *  ec   10.4.0.0/16            10.2.1.4              0       100     0       i Or-ID: 10.0.0.1 C-LST: 10.0.1.0
- * >Ec   10.5.0.0/16            10.2.2.4              0       100     0       i Or-ID: 10.0.0.2 C-LST: 10.0.2.0
- *  ec   10.5.0.0/16            10.2.1.4              0       100     0       i Or-ID: 10.0.0.2 C-LST: 10.0.1.0
- * >     10.6.0.0/16            -                     1       0       -       i
- * >     10.7.0.0/16            -                     1       0       -       i
-```
-
-Проверка BFD:
-```
-Leaf-1#sh bfd peers
-VRF name: default
------------------
-DstAddr       MyDisc    YourDisc  Interface/Transport    Type           LastUp
---------- ----------- ----------- -------------------- ------- ----------------
-10.2.1.0  4095099468   504676901        Ethernet1(13)  normal   03/23/25 16:58
-10.2.2.0  2133840112  4225652655        Ethernet2(14)  normal   03/30/25 18:07
-
-         LastDown            LastDiag    State
--------------------- ------------------- -----
-   03/23/25 16:50       No Diagnostic       Up
-               NA       No Diagnostic       Up
 ```
