@@ -1,18 +1,18 @@
-### Underlay. iBGP
+### VxLAN. L2 VNI
 
 
 ### Цель
 
-- Настроить iBGP в Underlay сети для IP связанности между всеми сетевыми устройствами.
+- Настроить Overlay на основе VxLAN EVPN для L2 связанности между клиентами.
 
 ## Задачи
 
-- Настроить iBGP на устройствах стенда.
-- Отобразить адресное пространство, схему сети, конфигурацию устройств.
-- Убедиться в наличии IP связанности между устройствами, подключенными к Leaf.
+- Настроить BGP peering между Leaf и Spine в AF l2vpn evpn
+- Настроить связанность между клиентами в первой зоне и убедиться в её наличии
+- Зафиксировать в документации план работы, адресное пространство, схему сети, конфигурацию устройств
 
 
-### 1. Настройка устройств
+### 1. Предварительные условия
 
 Схема стенда из ДЗ №1:
 
@@ -57,49 +57,8 @@ iBGP наcтроен на всех устройствах.
 * На лифах настроена редистрибуция подключенных сетей
 * Настроены таймеры Keepalive = 3 sec , Hold Timer = 9 sec 
 
-Пример настройки Spine1:
 
-```
-Spine-1(config)#ip prefix-list DENY seq 10 deny 10.2.1.0/29 le 32
-Spine-1(config)#ip prefix-list DENY seq 20 deny 10.2.1.0/29 le 32
-Spine-1(config)#ip prefix-list DENY seq 40 permit 0.0.0.0/0 le 32
-Spine-1(config)#router bgp 65100
-Spine-1(config-router-bgp)#   router-id 10.0.1.0
-Spine-1(config-router-bgp)#   maximum-paths 10
-Spine-1(config-router-bgp)#   neighbor PEERS peer group
-Spine-1(config-router-bgp)#   neighbor PEERS remote-as 65100
-Spine-1(config-router-bgp)#   neighbor PEERS next-hop-self
-Spine-1(config-router-bgp)#   neighbor PEERS bfd
-Spine-1(config-router-bgp)#   neighbor PEERS route-reflector-client
-Spine-1(config-router-bgp)#   neighbor PEERS timers 3 9
-Spine-1(config-router-bgp)#   neighbor 10.2.1.1 peer group PEERS
-Spine-1(config-router-bgp)#   neighbor 10.2.1.3 peer group PEERS
-Spine-1(config-router-bgp)#   neighbor 10.2.1.5 peer group PEERS
-Spine-1(config-router-bgp)#   !
-Spine-1(config-router-bgp)#   address-family ipv4
-Spine-1(config-router-bgp-af)#      neighbor PEERS prefix-list DENY out
-Spine-1(config-router-bgp-af)#end
-
-```
-Пример настройки Leaf1:
-
-```
-Leaf-1(config)#router bgp 65100
-Leaf-1(config-router-bgp)#   router-id 10.0.0.1
-Leaf-1(config-router-bgp)#   maximum-paths 10
-Leaf-1(config-router-bgp)#   neighbor PEERS peer group
-Leaf-1(config-router-bgp)#   neighbor PEERS remote-as 65100
-Leaf-1(config-router-bgp)#   neighbor PEERS bfd
-Leaf-1(config-router-bgp)#   neighbor PEERS timers 3 9
-Leaf-1(config-router-bgp)#   neighbor 10.2.1.0 peer group PEERS
-Leaf-1(config-router-bgp)#   neighbor 10.2.2.0 peer group PEERS
-Leaf-1(config-router-bgp)#   redistribute connected
-Leaf-1(config-router-bgp)#end
-
-
-```
-
-### 2.2 Конфигурации устройств
+### 2.2 Настройка VxLAN EVPN
 
 Spine1
 
