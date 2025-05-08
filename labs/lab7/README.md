@@ -49,7 +49,7 @@ Leaf3|Lo1|10.0.0.3/32|
 
 ### 2.1 Настройка Underlay OSPF
 
-На всех устройствах настроен OSPF по аналогии с Lab1:
+На всех устройствах настроен OSPF по аналогии с Lab2:
 
 ```
 Spine-1
@@ -122,7 +122,7 @@ router bgp 65100
 !
 
 ```
-### 2.2 Настройка Vlan, VRF, Vxlan, BGP EVPN и Portchannel на Leaf-1 и Leaf-2
+### 2.3 Настройка Vlan, VRF, Vxlan, BGP EVPN и Portchannel на Leaf
 
 Leaf1
 ```
