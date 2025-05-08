@@ -408,7 +408,7 @@ AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Li
 
 
 ```
-### 3.2 Проверка отказоустойчивости
+### 3.3 Проверка отказоустойчивости
 
 На Leaf-1 при отключении интерфеса Eth3 пинг переходит на второе плечо
- ![img_2](Scheme_Eve_ip.jpg)
+ ![img_2](Scheme_Eve_ip0.jpg)

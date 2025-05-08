@@ -408,6 +408,37 @@ AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Li
 
 
 ```
+Leaf-2# 
+
+```sh bgp evpn
+BGP routing table information for VRF default
+Router identifier 10.0.0.2, local AS number 65002
+Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
+                    c - Contributing to ECMP, % - Pending BGP convergence
+Origin codes: i - IGP, e - EGP, ? - incomplete
+AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
+
+          Network                Next Hop              Metric  LocPref Weight  Path
+ * >      RD: 10.0.0.2:10 auto-discovery 0 0000:0000:0000:0000:0010
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.1:1 auto-discovery 0000:0000:0000:0000:0010
+                                 10.0.0.1              -       100     0       65100 65001 i
+ * >      RD: 10.0.0.2:1 auto-discovery 0000:0000:0000:0000:0010
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.1:10 imet 10.0.0.1
+                                 10.0.0.1              -       100     0       65100 65001 i
+ * >      RD: 10.0.0.2:10 imet 10.0.0.2
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.3:10 imet 10.0.0.3
+                                 10.0.0.3              -       100     0       65100 65003 i
+ * >      RD: 10.0.0.1:1 ethernet-segment 0000:0000:0000:0000:0010 10.0.0.1
+                                 10.0.0.1              -       100     0       65100 65001 i
+ * >      RD: 10.0.0.2:1 ethernet-segment 0000:0000:0000:0000:0010 10.0.0.2
+                                 -                     -       -       0       i
+
+```
+
+
 ### 3.3 Проверка отказоустойчивости
 
 На Leaf-1 при отключении интерфеса Eth3 пинг переходит на второе плечо
