@@ -7,8 +7,8 @@
 
 ## Задачи
 
-- Настроить BGP peering между Leaf и Spine в AF l2vpn evpn
-- Настроить связанность между клиентами и убедиться в её наличии
+- Настроить разные VNI для клиентов
+- Настроить маршрутизацию между клиентам
 - Зафиксировать в документации план работы, адресное пространство, схему сети, конфигурацию устройств
 
 
@@ -18,7 +18,7 @@
 
 ![img_2](Scheme_Eve_ip.jpg)
 
-В качестве коммутаторов - Nexus 9000v. На каждом устройстве произведена настройка адресации согласно плана: 
+В качестве коммутаторов - Nexus 9000v. На устройствах произведена настройка адресации согласно плана: 
 
 |Device|Interface|IP Address|Description|
 |---|---|---|---|
@@ -35,50 +35,31 @@ Leaf2|Lo0|2.2.2.2/32|
 -|Eth3|VLAN 20|Link to VPC2.2|
 
 
-### 2.1 Настройка VxLAN EVPN
+### 2.1 Настройка L3 VNI
 
-Остальные настройки производятся на лифах. Настраиваются VLAN, VRF, NVE интерфейсы:
+В добавление к лабораторной №5 настраивается дополнительный vlan и vni:
 
 ```
-Leaf-1(config)# vlan 10
-Leaf-1(config-vlan)# vn-segment 10010
-Leaf-1(config-vlan)# exit
-Leaf-1(config)# feature fabric forwarding
-Leaf-1(config)# fabric forwarding anycast-gateway-mac 0000.0000.0001
-Leaf-1(config)# vlan 100
-Leaf-1(config-vlan)# vn-segment 100
-Leaf-1(config)# vrf context TEST
-Leaf-1(config-vrf)# rd auto
-Leaf-1(config-vrf)# vni 100
-Leaf-1(config-vrf)# address-family ipv4 unicast
-Leaf-1(config-vrf-af-ipv4)# route-target both auto evpn
-Leaf-1(config-vrf-af-ipv4)# route-target both auto
-Leaf-1(config-vrf-af-ipv4)# exit
-Leaf-1(config)# int vlan 100
-Leaf-1(config-if)# no shutdown
-Leaf-1(config-if)# vrf member TEST
-Leaf-1(config-if)# ip forward
-Leaf-1(config-if)# exit
-Leaf-1(config)# int vlan 10
+
+Leaf-1(config)#vlan 20
+Leaf-1(config)#vn-segment 10020
+
+Leaf-1(config)# int vlan 20
 Leaf-1(config-if)# no sh
 Leaf-1(config-if)# vrf member TEST
-Leaf-1(config-if)# ip address 192.168.10.1/24
+Leaf-1(config-if)# ip address 192.168.20.1/24
 Leaf-1(config-if)# fabric forwarding mode anycast-gateway
 
 
 Leaf-1(config-if)# int nve 1
-Leaf-1(config-if-nve)# no sh
-Leaf-1(config-if-nve)# source-interface loopback 0
-Leaf-1(config-if-nve)# host-reachability protocol bgp
-Leaf-1(config-if-nve)# member vni 10010
+Leaf-1(config-if-nve)# member vni 10020
 Leaf-1(config-if-nve-vni)# ingress-replication protocol bgp
 Leaf-1(config-if-nve-vni)# exit
-Leaf-1(config-if-nve)# member vni 100 associate-vrf
-Leaf-1(config-if-nve-vni)# exit
+
 ```
 
 
-### 2.2 ПОлные конфигурации устройств
+### 2.2 Полные конфигурации устройств
 
 Spine1
 
@@ -413,6 +394,28 @@ router bgp 65000
 
 ### 3. Проверка L3-связности
 
+Пинг между VPC в разных VLAN, подключенными к разным VTEP
+```
+VPCS>  ip 192.168.10.10/24 192.168.10.1
+Checking for duplicate address...
+PC1 : 192.168.10.10 255.255.255.0 gateway 192.168.10.1
+
+VPCS> ping 192.168.10.20
+
+84 bytes from 192.168.10.20 icmp_seq=1 ttl=64 time=20.346 ms
+84 bytes from 192.168.10.20 icmp_seq=2 ttl=64 time=23.255 ms
+^C
+VPCS> ping 192.168.20.10
+
+84 bytes from 192.168.20.10 icmp_seq=1 ttl=63 time=15.235 ms
+84 bytes from 192.168.20.10 icmp_seq=2 ttl=63 time=14.456 ms
+^C
+VPCS> ping 192.168.20.20
+
+84 bytes from 192.168.20.20 icmp_seq=1 ttl=62 time=31.800 ms
+84 bytes from 192.168.20.20 icmp_seq=2 ttl=62 time=22.940 ms
+```
+
 Таблица маршрутизации на Leaf1
 
 ```
@@ -445,23 +448,7 @@ n) segid: 100 tunnelid: 0x2020202 encap: VXLAN
 
 ```
 
-Leaf-1# sh ip arp vrf TEST
-```
-Flags: * - Adjacencies learnt on non-active FHRP router
-       + - Adjacencies synced via CFSoE
-       # - Adjacencies Throttled for Glean
-       CP - Added via L2RIB, Control plane Adjacencies
-       PS - Added via L2RIB, Peer Sync
-       RO - Re-Originated Peer Sync Entry
-       D - Static Adjacencies attached to down interface
 
-IP ARP Table for context TEST
-Total number of entries: 2
-Address         Age       MAC Address     Interface       Flags
-192.168.10.10   00:02:52  0050.7966.68e5  Vlan10
-192.168.20.10   00:03:56  0050.7966.68eb  Vlan20
-
-```
 Таблица Host Mobility Manager
 ```
 Leaf-1# sh fabric forwarding ip local-host-db vrf TEST
