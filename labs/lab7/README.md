@@ -321,12 +321,14 @@ interface Ethernet2
 interface Vlan10
    ip address 192.168.10.1/24
 !
-```
 
 ```
+
 
 
 ### 3.1 Проверка пинга с VPC3 до Server 
+
+
 ```
 VPCS> show
 
@@ -378,7 +380,8 @@ AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Li
 ```
 Leaf-2# 
 
-```sh bgp evpn
+```
+sh bgp evpn
 BGP routing table information for VRF default
 Router identifier 10.0.0.2, local AS number 65002
 Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
