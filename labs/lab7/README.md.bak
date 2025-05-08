@@ -49,7 +49,7 @@ Leaf3|Lo1|10.0.0.3/32|
 
 ### 2.1 Настройка Underlay OSPF
 
-На всех устройствах настроен OSPF по аналогии с Lab1:
+На всех устройствах настроен OSPF по аналогии с Lab2:
 
 ```
 Spine-1
@@ -122,7 +122,7 @@ router bgp 65100
 !
 
 ```
-### 2.2 Настройка Vlan, VRF, Vxlan, BGP EVPN и Portchannel на Leaf-1 и Leaf-2
+### 2.3 Настройка Vlan, VRF, Vxlan, BGP EVPN и Portchannel на Leaf
 
 Leaf1
 ```
@@ -259,54 +259,8 @@ vrf instance VRF1
 !
 !
 interface Ethernet4
-   speed 100g-2
    switchport access vlan 10
    switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet5
-   speed 100g-2
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet6
-   speed 100g-2
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet7
-   speed 100g-2
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Ethernet8
-   speed 100g-2
-   no switchport
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
-!
-interface Loopback1
-   ip address 10.0.0.3/32
-   ip ospf area 0.0.0.0
-!
-interface Loopback2
-   ip address 10.1.0.3/32
-   ip ospf area 0.0.0.0
-!
-interface Management1
-   speed 10full
-   ipv6 enable
-   ipv6 address auto-config
-   ipv6 nd ra rx accept default-route
 !
 interface Vlan10
    vrf VRF1
@@ -404,5 +358,57 @@ AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Li
 
 ```
 
+### 3.1 Проверка пинга с VPC3 до Server 
+```
+VPCS> show
+
+NAME   IP/MASK              GATEWAY                             GATEWAY
+VPCS1  192.168.10.200/24    192.168.10.254
+       fe80::250:79ff:fe66:6809/64
+
+VPCS> ping 192.168.10.1
+
+84 bytes from 192.168.10.1 icmp_seq=1 ttl=64 time=132.035 ms
+84 bytes from 192.168.10.1 icmp_seq=2 ttl=64 time=68.687 ms
+84 bytes from 192.168.10.1 icmp_seq=3 ttl=64 time=100.530 ms
+84 bytes from 192.168.10.1 icmp_seq=4 ttl=64 time=77.974 ms
+84 bytes from 192.168.10.1 icmp_seq=5 ttl=64 time=160.940 ms
+```
+
+### 3.2 Проверка маршрутов 
+
+ Leaf1
+
+```
+Leaf-1#sh bgp evpn
+BGP routing table information for VRF default
+Router identifier 10.0.0.1, local AS number 65001
+Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
+                    c - Contributing to ECMP, % - Pending BGP convergence
+Origin codes: i - IGP, e - EGP, ? - incomplete
+AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
+
+          Network                Next Hop              Metric  LocPref Weight  Path
+ * >      RD: 10.0.0.1:10 auto-discovery 0 0000:0000:0000:0000:0010
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.2:10 auto-discovery 0 0000:0000:0000:0000:0010
+                                 10.0.0.2              -       100     0       65100 65002 i
+ * >      RD: 10.0.0.1:1 auto-discovery 0000:0000:0000:0000:0010
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.2:1 auto-discovery 0000:0000:0000:0000:0010
+                                 10.0.0.2              -       100     0       65100 65002 i
+ * >      RD: 10.0.0.1:10 imet 10.0.0.1
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.2:10 imet 10.0.0.2
+                                 10.0.0.2              -       100     0       65100 65002 i
+ * >      RD: 10.0.0.1:1 ethernet-segment 0000:0000:0000:0000:0010 10.0.0.1
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.2:1 ethernet-segment 0000:0000:0000:0000:0010 10.0.0.2
+                                 10.0.0.2              -       100     0       65100 65002 i
 
 
+```
+### 3.2 Проверка отказоустойчивости
+
+На Leaf-1 при отключении интерфеса Eth3 пинг переходит на второе плечо
+ ![img_2](Scheme_Eve_ip.jpg)
