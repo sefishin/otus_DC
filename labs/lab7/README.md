@@ -1,15 +1,17 @@
-### VxLAN. L3 VNI
+### VXLAN. Multihoming.
 
 
 ### Цель
 
-- Настроить Overlay на основе VxLAN EVPN для L3 связанности между клиентами.
+- Настроить отказоустойчивое подключение клиентов с использованием EVPN Multihoming
 
 ## Задачи
 
-- Настроить BGP peering между Leaf и Spine в AF l2vpn evpn
-- Настроить связанность между клиентами и убедиться в её наличии
-- Зафиксировать в документации план работы, адресное пространство, схему сети, конфигурацию устройств
+- Подключите клиентов 2-я линками к различным Leaf
+- Настроите агрегированный канал со стороны клиента
+- Настроите multihoming для работы в Overlay сети. 
+- Зафиксируете в документации - план работы, адресное пространство, схему сети, конфигурацию устройств
+- Опционально - протестировать отказоустойчивость - убедиться, что связнность не теряется при отключении одного из линков
 
 
 ### 1. Предварительные условия
@@ -18,478 +20,395 @@
 
 ![img_2](Scheme_Eve_ip.jpg)
 
-В качестве коммутаторов - Nexus 9000v. На каждом устройстве произведена настройка адресации согласно плана: 
+В качестве устройств Leaf, Spine и Server - коммутаторы Arista. 
+
+Адресация:
+
 
 |Device|Interface|IP Address|Description|
 |---|---|---|---|
-Spine1|Lo0|11.11.11.11/32|
+Spine1|Lo1|10.0.1.0/32|
+-|Lo2|10.1.1.0/32|
 -|Eth1|10.2.1.0/31|Link to Leaf1|
 -|Eth2|10.2.1.2/31|Link to Leaf2|
-Leaf1|Lo0|1.1.1.1/32|
+-|Eth3|10.2.1.4/31|Link to Leaf3|
+Leaf1|Lo1|10.0.0.1/32|
+-|Lo2|10.1.0.1/32|
 -|Eth1|10.2.1.1/31|Link to Spine1|
--|Eth2|VLAN 10|Link to VPC1|
--|Eth3|VLAN 20|Link to VPC1.1|
-Leaf2|Lo0|2.2.2.2/32|
+-|Eth3|10.4.0.1/16|Link to Server|
+Leaf2|Lo1|10.0.0.2/32|
+-|Lo2|10.1.0.2/32|
 -|Eth1|10.2.1.3/31|Link to Spine1|
--|Eth2|VLAN 10|Link to VPC2|
--|Eth3|VLAN 20|Link to VPC2.2|
+-|Eth3|10.5.0.2/16|Link to Server|
+Leaf3|Lo1|10.0.0.3/32|
+-|Lo2|10.1.0.3/32|
+-|Eth1|10.2.1.5/31|Link to Spine1|
+-|Eth4|-|VPC3|
 
 
-### 2.1 Настройка VxLAN EVPN
 
-Остальные настройки производятся на лифах. Настраиваются VLAN, VRF, NVE интерфейсы:
+### 2.1 Настройка Underlay OSPF
+
+На всех устройствах настроен OSPF по аналогии с Lab1:
 
 ```
-Leaf-1(config)# vlan 10
-Leaf-1(config-vlan)# vn-segment 10010
-Leaf-1(config-vlan)# exit
-Leaf-1(config)# feature fabric forwarding
-Leaf-1(config)# fabric forwarding anycast-gateway-mac 0000.0000.0001
-Leaf-1(config)# vlan 100
-Leaf-1(config-vlan)# vn-segment 100
-Leaf-1(config)# vrf context TEST
-Leaf-1(config-vrf)# rd auto
-Leaf-1(config-vrf)# vni 100
-Leaf-1(config-vrf)# address-family ipv4 unicast
-Leaf-1(config-vrf-af-ipv4)# route-target both auto evpn
-Leaf-1(config-vrf-af-ipv4)# route-target both auto
-Leaf-1(config-vrf-af-ipv4)# exit
-Leaf-1(config)# int vlan 100
-Leaf-1(config-if)# no shutdown
-Leaf-1(config-if)# vrf member TEST
-Leaf-1(config-if)# ip forward
-Leaf-1(config-if)# exit
-Leaf-1(config)# int vlan 10
-Leaf-1(config-if)# no sh
-Leaf-1(config-if)# vrf member TEST
-Leaf-1(config-if)# ip address 192.168.10.1/24
-Leaf-1(config-if)# fabric forwarding mode anycast-gateway
+Spine-1
+
+interface Ethernet1
+   no switchport
+   ip address 10.2.1.0/31
+   bfd static neighbor 10.2.1.1
+   ip ospf network point-to-point
+   ip ospf area 0.0.0.0
+!
+interface Ethernet2
+   no switchport
+   ip address 10.2.1.2/31
+   ip ospf network point-to-point
+   ip ospf area 0.0.0.0
+!
+interface Ethernet3
+   no switchport
+   ip address 10.2.1.4/31
+   ip ospf network point-to-point
+   ip ospf area 0.0.0.0
+!
+...
+!
+interface Loopback1
+   ip address 10.0.1.0/32
+   ip ospf area 0.0.0.0
+!
+interface Loopback2
+   ip address 10.1.1.0/32
+   ip ospf area 0.0.0.0
+
+!
+router ospf 100
+   passive-interface default
+   no passive-interface Ethernet1
+   no passive-interface Ethernet2
+   no passive-interface Ethernet3
+   max-lsa 12000
 
 
-Leaf-1(config-if)# int nve 1
-Leaf-1(config-if-nve)# no sh
-Leaf-1(config-if-nve)# source-interface loopback 0
-Leaf-1(config-if-nve)# host-reachability protocol bgp
-Leaf-1(config-if-nve)# member vni 10010
-Leaf-1(config-if-nve-vni)# ingress-replication protocol bgp
-Leaf-1(config-if-nve-vni)# exit
-Leaf-1(config-if-nve)# member vni 100 associate-vrf
-Leaf-1(config-if-nve-vni)# exit
 ```
+Остальные устройства настроены анаогично, везде настроена OSPF area 0.
 
-
-### 2.2 ПОлные конфигурации устройств
+### 2.2 Настройка eBGP и EVPN на Spine1 
 
 Spine1
 
 ```
-version 9.3(1) Bios:version
-switchname Spine-1
-vdc Spine-1 id 1
-  limit-resource vlan minimum 16 maximum 4094
-  limit-resource vrf minimum 2 maximum 4096
-  limit-resource port-channel minimum 0 maximum 511
-  limit-resource u4route-mem minimum 248 maximum 248
-  limit-resource u6route-mem minimum 96 maximum 96
-  limit-resource m4route-mem minimum 58 maximum 58
-  limit-resource m6route-mem minimum 8 maximum 8
+router bgp 65100
+   neighbor 10.0.0.1 remote-as 65001
+   neighbor 10.0.0.1 update-source Loopback1
+   neighbor 10.0.0.1 ebgp-multihop 5
+   neighbor 10.0.0.1 send-community extended
+   neighbor 10.0.0.2 remote-as 65002
+   neighbor 10.0.0.2 update-source Loopback1
+   neighbor 10.0.0.2 ebgp-multihop 5
+   neighbor 10.0.0.2 send-community extended
+   neighbor 10.0.0.3 remote-as 65003
+   neighbor 10.0.0.3 update-source Loopback1
+   neighbor 10.0.0.3 ebgp-multihop 5
+   neighbor 10.0.0.3 send-community extended
+   !
+   address-family evpn
+      neighbor 10.0.0.1 activate
+      neighbor 10.0.0.2 activate
+      neighbor 10.0.0.3 activate
 
-no feature ssh
-nv overlay evpn
-feature ospf
-feature bgp
-feature nv overlay
-
-no password strength-check
-username admin password 5 $5$W0y86Dzq$VYqcG2rmHXwwsRgeGsDANo0IkJiGypiqbg.szV0Mt9
-9  role network-admin
-ip domain-lookup
-no system default switchport
-snmp-server user admin network-admin auth md5 0x72a08c95012f25aad4ac2eff6e974ef1
- priv 0x72a08c95012f25aad4ac2eff6e974ef1 localizedkey
-rmon event 1 description FATAL(1) owner PMON@FATAL
-rmon event 2 description CRITICAL(2) owner PMON@CRITICAL
-rmon event 3 description ERROR(3) owner PMON@ERROR
-rmon event 4 description WARNING(4) owner PMON@WARNING
-rmon event 5 description INFORMATION(5) owner PMON@INFO
-
-vlan 1
-
-vrf context management
-
-interface Ethernet1/1
-  ip address 10.2.1.0/31
-  ip ospf network point-to-point
-  ip router ospf 1 area 0.0.0.0
-  no shutdown
-
-interface Ethernet1/2
-  ip address 10.2.1.2/31
-  ip ospf network point-to-point
-  ip router ospf 1 area 0.0.0.0
-  no shutdown
-
-interface Ethernet1/3
-
-...
-
-interface Ethernet1/128
-
-interface mgmt0
-  vrf member management
-
-interface loopback0
-  ip address 11.11.11.11/32
-  ip router ospf 1 area 0.0.0.0
-line console
-line vty
-router ospf 1
-  router-id 11.11.11.11
-router bgp 65000
-  address-family l2vpn evpn
-  neighbor 1.1.1.1
-    remote-as 65000
-    update-source loopback0
-    address-family l2vpn evpn
-      send-community
-      send-community extended
-  neighbor 2.2.2.2
-    remote-as 65000
-    update-source loopback0
-    address-family l2vpn evpn
-      send-community
-      send-community extended
-      route-reflector-client
-
-
+!
 
 ```
+### 2.2 Настройка Vlan, VRF, Vxlan, BGP EVPN и Portchannel на Leaf-1 и Leaf-2
 
 Leaf1
-
 ```
-version 9.3(1) Bios:version
-switchname Leaf-1
-vdc Leaf-1 id 1
-  limit-resource vlan minimum 16 maximum 4094
-  limit-resource vrf minimum 2 maximum 4096
-  limit-resource port-channel minimum 0 maximum 511
-  limit-resource u4route-mem minimum 248 maximum 248
-  limit-resource u6route-mem minimum 96 maximum 96
-  limit-resource m4route-mem minimum 58 maximum 58
-  limit-resource m6route-mem minimum 8 maximum 8
-
-no feature ssh
-nv overlay evpn
-feature ospf
-feature bgp
-feature fabric forwarding
-feature interface-vlan
-feature vn-segment-vlan-based
-feature nv overlay
-
-no password strength-check
-username admin password 5 $5$kIg7CrSN$gIjQQRaKfj3wihCghlc69z8zji6.RBlWIqat.xX2at
-C  role network-admin
-ip domain-lookup
-no system default switchport
-copp profile strict
-snmp-server user admin auth md5 0x899fa8779e43ff9f657e345fe48e5e72 priv 0x899fa8
-779e43ff9f657e345fe48e5e72 localizedkey engineID 128:0:0:9:3:80:48:52:2:204:0
-rmon event 1 description FATAL(1) owner PMON@FATAL
-rmon event 2 description CRITICAL(2) owner PMON@CRITICAL
-rmon event 3 description ERROR(3) owner PMON@ERROR
-rmon event 4 description WARNING(4) owner PMON@WARNING
-rmon event 5 description INFORMATION(5) owner PMON@INFO
-
-fabric forwarding anycast-gateway-mac 0000.0000.0001
-vlan 1,10,20,100
 vlan 10
-  vn-segment 10010
-vlan 20
-  vn-segment 10020
-vlan 100
-  vn-segment 100
-
-vrf context TEST
-  vni 100
-  rd auto
-  address-family ipv4 unicast
-    route-target both auto
-    route-target both auto evpn
-vrf context management
-
-interface Vlan1
-
-interface Vlan10
-  no shutdown
-  vrf member TEST
-  ip address 192.168.10.1/24
-  fabric forwarding mode anycast-gateway
-
-interface Vlan20
-  no shutdown
-  vrf member TEST
-  ip address 192.168.20.1/24
-  fabric forwarding mode anycast-gateway
-
-interface Vlan100
-  no shutdown
-  vrf member TEST
-  ip forward
-
-interface nve1
-  no shutdown
-  host-reachability protocol bgp
-  source-interface loopback0
-  member vni 100 associate-vrf
-  member vni 10010
-    ingress-replication protocol bgp
-  member vni 10020
-    ingress-replication protocol bgp
-
-interface Ethernet1/1
-  ip address 10.2.1.1/31
-  ip ospf network point-to-point
-  ip router ospf 1 area 0.0.0.0
-  no shutdown
-
-interface Ethernet1/2
-  switchport
-  switchport access vlan 10
-
-interface Ethernet1/3
-  switchport
-  switchport access vlan 20
-
+!
+vrf instance VRF1
+!
+interface Port-Channel1
+   switchport access vlan 10
+   !
+   evpn ethernet-segment
+      identifier 0000:0000:0000:0000:0010
+      route-target import 00:00:00:00:00:10
+   lacp system-id dead.dead.0010
+!
 
 ...
-
-interface Ethernet1/128
-
-interface mgmt0
-  vrf member management
-
-interface loopback0
-  ip address 1.1.1.1/32
-  ip router ospf 1 area 0.0.0.0
-line console
-line vty
-router ospf 1
-  router-id 1.1.1.1
-router bgp 65000
-  address-family l2vpn evpn
-  neighbor 11.11.11.11
-    remote-as 65000
-    update-source loopback0
-    address-family l2vpn evpn
-      send-community
-      send-community extended
+!
+interface Ethernet3
+   channel-group 1 mode active
+!
+...
+interface Vlan10
+   vrf VRF1
+   ip address virtual 192.168.10.254/24
+!
+interface Vxlan1
+   vxlan source-interface Loopback1
+   vxlan udp-port 4789
+   vxlan vlan 10 vni 1010
+   vxlan vrf VRF1 vni 1000
+   vxlan learn-restrict any
+!
+ip virtual-router mac-address 02:aa:aa:aa:aa:aa
+!
+ip routing
+ip routing vrf VRF1
+!
+...
+!
+router bgp 65001
+   router-id 10.0.0.1
+   maximum-paths 10
+   neighbor 10.0.1.0 remote-as 65100
+   neighbor 10.0.1.0 update-source Loopback1
+   neighbor 10.0.1.0 bfd
+   neighbor 10.0.1.0 ebgp-multihop 5
+   neighbor 10.0.1.0 timers 3 9
+   neighbor 10.0.1.0 send-community extended
+   !
+   vlan 10
+      rd auto
+      route-target both 65100:1010
+      redistribute learned
+   !
+   address-family evpn
+      neighbor 10.0.1.0 activate
+   !
+   vrf VRF1
+      rd 10.0.0.1:1000
+      route-target import evpn 10:1100
+      route-target export evpn 10:1100
+!
 
 
 ```
-
 Leaf2
 
 ```
-version 9.3(1) Bios:version
-switchname Leaf-2
-vdc Leaf-2 id 1
-  limit-resource vlan minimum 16 maximum 4094
-  limit-resource vrf minimum 2 maximum 4096
-  limit-resource port-channel minimum 0 maximum 511
-  limit-resource u4route-mem minimum 248 maximum 248
-  limit-resource u6route-mem minimum 96 maximum 96
-  limit-resource m4route-mem minimum 58 maximum 58
-  limit-resource m6route-mem minimum 8 maximum 8
-
-no feature ssh
-nv overlay evpn
-feature ospf
-feature bgp
-feature fabric forwarding
-feature interface-vlan
-feature vn-segment-vlan-based
-feature nv overlay
-
-no password strength-check
-username admin password 5 $5$xo.rexaD$ITvOJ.j6./AQdpu3w90daeHaW1fYL46KOlgVYmCn/P
-.  role network-admin
-ip domain-lookup
-no system default switchport
-snmp-server user admin network-admin auth md5 0x038347264d1f462ed75c0f2ce97b8564
- priv 0x038347264d1f462ed75c0f2ce97b8564 localizedkey
-rmon event 1 description FATAL(1) owner PMON@FATAL
-rmon event 2 description CRITICAL(2) owner PMON@CRITICAL
-rmon event 3 description ERROR(3) owner PMON@ERROR
-rmon event 4 description WARNING(4) owner PMON@WARNING
-rmon event 5 description INFORMATION(5) owner PMON@INFO
-
-fabric forwarding anycast-gateway-mac 0000.0000.0001
-vlan 1,10,20,100
 vlan 10
-  vn-segment 10010
-vlan 20
-  vn-segment 10020
-vlan 100
-  vn-segment 100
+   name vl10
+!
+vrf instance VRF1
+!
+interface Port-Channel1
+   switchport access vlan 10
+   !
+   evpn ethernet-segment
+      identifier 0000:0000:0000:0000:0010
+      route-target import 00:00:00:00:00:10
+   lacp system-id dead.dead.0010
+!
+...
+!
+interface Ethernet3
+   channel-group 1 mode active
+!
+...
+!
+interface Vlan10
+   vrf VRF1
+   ip address 192.168.10.254/24
+!
+interface Vxlan1
+   vxlan source-interface Loopback1
+   vxlan udp-port 4789
+   vxlan vlan 10 vni 1010
+   vxlan vrf VRF1 vni 1000
+!
+ip virtual-router mac-address 02:aa:aa:aa:aa:aa
+!
+ip routing
+ip routing vrf VRF1
+!
+router bgp 65002
+   router-id 10.0.0.2
+   maximum-paths 10
+   neighbor 10.0.1.0 remote-as 65100
+   neighbor 10.0.1.0 update-source Loopback1
+   neighbor 10.0.1.0 bfd
+   neighbor 10.0.1.0 ebgp-multihop 5
+   neighbor 10.0.1.0 timers 3 9
+   neighbor 10.0.1.0 send-community extended
+   !
+   vlan 10
+      rd auto
+      route-target both 65100:1010
+      redistribute learned
+   !
+   address-family evpn
+      neighbor 10.0.1.0 activate
+   !
+   vrf VRF1
+      rd 10.0.0.2:1000
+      route-target import evpn 10:1100
+      route-target export evpn 10:1100
+!
+```
+Leaf3
+```
+vlan 10
+!
+vrf instance VRF1
+!
+!
+interface Ethernet4
+   switchport access vlan 10
+   switchport
+!
+interface Vlan10
+   vrf VRF1
+   ip address virtual 192.168.10.254/24
+!
+interface Vxlan1
+   vxlan source-interface Loopback1
+   vxlan udp-port 4789
+   vxlan vlan 10 vni 1010
+   vxlan vrf VRF1 vni 1000
+!
+ip routing
+no ip routing vrf VRF1
 
-vrf context TEST
-  vni 100
-  rd auto
-  address-family ipv4 unicast
-    route-target both auto
-    route-target both auto evpn
-vrf context management
+!
+router bgp 65003
+   router-id 10.0.0.3
+   maximum-paths 10
+   neighbor 10.0.1.0 remote-as 65100
+   neighbor 10.0.1.0 update-source Loopback1
+   neighbor 10.0.1.0 bfd
+   neighbor 10.0.1.0 ebgp-multihop 5
+   neighbor 10.0.1.0 timers 3 9
+   neighbor 10.0.1.0 send-community extended
+   !
+   vlan 10
+      rd auto
+      route-target both 65100:1010
+      redistribute learned
+   !
+   address-family evpn
+      neighbor 10.0.1.0 activate
+   !
+   vrf VRF1
+      rd 10.0.0.3:1000
+      route-target import evpn 10:1100
+      route-target export evpn 10:1100
+```
 
-interface Vlan1
+
+Server
+
+```
+vlan 10
+!
+interface Port-Channel1
+   switchport access vlan 10
+!
+interface Ethernet1
+   no switchport
+   channel-group 1 mode active
+!
+interface Ethernet2
+   no switchport
+   channel-group 1 mode active
+!
 
 interface Vlan10
-  no shutdown
-  vrf member TEST
-  ip address 192.168.10.1/24
-  fabric forwarding mode anycast-gateway
-
-interface Vlan20
-  no shutdown
-  vrf member TEST
-  ip address 192.168.20.1/24
-  fabric forwarding mode anycast-gateway
-
-interface Vlan100
-  no shutdown
-  vrf member TEST
-  ip forward
-
-interface nve1
-  no shutdown
-  host-reachability protocol bgp
-  source-interface loopback0
-  member vni 100 associate-vrf
-  member vni 10010
-    ingress-replication protocol bgp
-  member vni 10020
-    ingress-replication protocol bgp
-
-interface Ethernet1/1
-  ip address 10.2.1.3/31
-  ip ospf network point-to-point
-  ip router ospf 1 area 0.0.0.0
-  no shutdown
-
-interface Ethernet1/2
-  switchport
-  switchport access vlan 10
-
-interface Ethernet1/3
-  switchport
-  switchport access vlan 20
-
-
-...
-
-interface Ethernet1/128
-
-interface mgmt0
-  vrf member management
-
-interface loopback0
-  ip address 2.2.2.2/32
-  ip router ospf 1 area 0.0.0.0
-line console
-line vty
-router ospf 1
-  router-id 2.2.2.2
-router bgp 65000
-  address-family l2vpn evpn
-  neighbor 11.11.11.11
-    remote-as 65000
-    update-source loopback0
-    address-family l2vpn evpn
-      send-community
-      send-community extended
-
-```
-
-### 3. Проверка L3-связности
-
-Таблица маршрутизации на Leaf1
-
-```
-Leaf-1# sh ip route vrf TEST
-IP Route Table for VRF "TEST"
-'*' denotes best ucast next-hop
-'**' denotes best mcast next-hop
-'[x/y]' denotes [preference/metric]
-'%<string>' in via output denotes VRF <string>
-
-192.168.10.0/24, ubest/mbest: 1/0, attached
-    *via 192.168.10.1, Vlan10, [0/0], 05:46:50, direct
-192.168.10.1/32, ubest/mbest: 1/0, attached
-    *via 192.168.10.1, Vlan10, [0/0], 05:46:50, local
-192.168.10.10/32, ubest/mbest: 1/0, attached
-    *via 192.168.10.10, Vlan10, [190/0], 00:38:04, hmm
-192.168.10.20/32, ubest/mbest: 1/0
-    *via 2.2.2.2%default, [200/0], 05:16:20, bgp-65000, internal, tag 65000 (evp
-n) segid: 100 tunnelid: 0x2020202 encap: VXLAN
-
-192.168.20.0/24, ubest/mbest: 1/0, attached
-    *via 192.168.20.1, Vlan20, [0/0], 00:40:16, direct
-192.168.20.1/32, ubest/mbest: 1/0, attached
-    *via 192.168.20.1, Vlan20, [0/0], 00:40:16, local
-192.168.20.10/32, ubest/mbest: 1/0, attached
-    *via 192.168.20.10, Vlan20, [190/0], 00:19:07, hmm
-192.168.20.20/32, ubest/mbest: 1/0
-    *via 2.2.2.2%default, [200/0], 00:15:55, bgp-65000, internal, tag 65000 (evp
-n) segid: 100 tunnelid: 0x2020202 encap: VXLAN
-
-```
-
-Leaf-1# sh ip arp vrf TEST
-```
-Flags: * - Adjacencies learnt on non-active FHRP router
-       + - Adjacencies synced via CFSoE
-       # - Adjacencies Throttled for Glean
-       CP - Added via L2RIB, Control plane Adjacencies
-       PS - Added via L2RIB, Peer Sync
-       RO - Re-Originated Peer Sync Entry
-       D - Static Adjacencies attached to down interface
-
-IP ARP Table for context TEST
-Total number of entries: 2
-Address         Age       MAC Address     Interface       Flags
-192.168.10.10   00:02:52  0050.7966.68e5  Vlan10
-192.168.20.10   00:03:56  0050.7966.68eb  Vlan20
-
-```
-Таблица Host Mobility Manager
-```
-Leaf-1# sh fabric forwarding ip local-host-db vrf TEST
-
-HMM host IPv4 routing table information for VRF TEST
-Status: *-valid, x-deleted, D-Duplicate, DF-Duplicate and frozen,
-        c-cleaned in 00:07:00
-
-    Host                 MAC Address        SVI        Flags      Physical Inter
-face
-*   192.168.10.10/32     0050.7966.68e5     Vlan10     0x420201   Ethernet1/2
-*   192.168.20.10/32     0050.7966.68eb     Vlan20     0x420201   Ethernet1/3
-```
-
-Таблица L2RIB 
-```
-Leaf-1# sh l2route evpn mac-ip all
-Flags -(Rmac):Router MAC (Stt):Static (L):Local (R):Remote (V):vPC link
-(Dup):Duplicate (Spl):Split (Rcv):Recv(D):Del Pending (S):Stale (C):Clear
-(Ps):Peer Sync (Ro):Re-Originated (Orp):Orphan
-Topology    Mac Address    Host IP                                 Prod   Flags         Seq No     Next-Hops
------------ -------------- --------------------------------------- ------ ---------- ---------- ---------------------------------------
-10          0050.7966.68e5 192.168.10.10                           HMM    L,            0         Local
-10          0050.7966.68e6 192.168.10.20                           BGP    --            0         2.2.2.2
-20          0050.7966.68eb 192.168.20.10                           HMM    L,            0         Local
-20          0050.7966.68ea 192.168.20.20                           BGP    --            0         2.2.2.2
-
+   ip address 192.168.10.1/24
+!
 ```
 
 
+### 3.1 Проверка маршрутов 
 
+ Leaf1
+
+```
+Leaf-1#sh bgp evpn
+BGP routing table information for VRF default
+Router identifier 10.0.0.1, local AS number 65001
+Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
+                    c - Contributing to ECMP, % - Pending BGP convergence
+Origin codes: i - IGP, e - EGP, ? - incomplete
+AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
+
+          Network                Next Hop              Metric  LocPref Weight  Path
+ * >      RD: 10.0.0.1:10 auto-discovery 0 0000:0000:0000:0000:0010
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.2:10 auto-discovery 0 0000:0000:0000:0000:0010
+                                 10.0.0.2              -       100     0       65100 65002 i
+ * >      RD: 10.0.0.1:1 auto-discovery 0000:0000:0000:0000:0010
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.2:1 auto-discovery 0000:0000:0000:0000:0010
+                                 10.0.0.2              -       100     0       65100 65002 i
+ * >      RD: 10.0.0.1:10 imet 10.0.0.1
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.2:10 imet 10.0.0.2
+                                 10.0.0.2              -       100     0       65100 65002 i
+ * >      RD: 10.0.0.1:1 ethernet-segment 0000:0000:0000:0000:0010 10.0.0.1
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.2:1 ethernet-segment 0000:0000:0000:0000:0010 10.0.0.2
+                                 10.0.0.2              -       100     0       65100 65002 i
+
+
+```
+
+### 3.1 Проверка пинга с VPC3 до Server 
+```
+VPCS> show
+
+NAME   IP/MASK              GATEWAY                             GATEWAY
+VPCS1  192.168.10.200/24    192.168.10.254
+       fe80::250:79ff:fe66:6809/64
+
+VPCS> ping 192.168.10.1
+
+84 bytes from 192.168.10.1 icmp_seq=1 ttl=64 time=132.035 ms
+84 bytes from 192.168.10.1 icmp_seq=2 ttl=64 time=68.687 ms
+84 bytes from 192.168.10.1 icmp_seq=3 ttl=64 time=100.530 ms
+84 bytes from 192.168.10.1 icmp_seq=4 ttl=64 time=77.974 ms
+84 bytes from 192.168.10.1 icmp_seq=5 ttl=64 time=160.940 ms
+```
+
+### 3.2 Проверка маршрутов 
+
+ Leaf1
+
+```
+Leaf-1#sh bgp evpn
+BGP routing table information for VRF default
+Router identifier 10.0.0.1, local AS number 65001
+Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
+                    c - Contributing to ECMP, % - Pending BGP convergence
+Origin codes: i - IGP, e - EGP, ? - incomplete
+AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
+
+          Network                Next Hop              Metric  LocPref Weight  Path
+ * >      RD: 10.0.0.1:10 auto-discovery 0 0000:0000:0000:0000:0010
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.2:10 auto-discovery 0 0000:0000:0000:0000:0010
+                                 10.0.0.2              -       100     0       65100 65002 i
+ * >      RD: 10.0.0.1:1 auto-discovery 0000:0000:0000:0000:0010
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.2:1 auto-discovery 0000:0000:0000:0000:0010
+                                 10.0.0.2              -       100     0       65100 65002 i
+ * >      RD: 10.0.0.1:10 imet 10.0.0.1
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.2:10 imet 10.0.0.2
+                                 10.0.0.2              -       100     0       65100 65002 i
+ * >      RD: 10.0.0.1:1 ethernet-segment 0000:0000:0000:0000:0010 10.0.0.1
+                                 -                     -       -       0       i
+ * >      RD: 10.0.0.2:1 ethernet-segment 0000:0000:0000:0000:0010 10.0.0.2
+                                 10.0.0.2              -       100     0       65100 65002 i
+
+
+```
+### 3.2 Проверка отказоустойчивости
+
+На Leaf-1 при отключении интерфеса Eth3 пинг переходит на второе плечо
+ ![img_2](Scheme_Eve_ip.jpg)
