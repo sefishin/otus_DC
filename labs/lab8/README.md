@@ -17,7 +17,7 @@ __Схема стенда:__
 
 ![img_2](Scheme_Eve_ip.jpg)
 
-__ В качестве коммутаторов - Nexus 9000v. В качестве роутера - CSR-1000v. На устройствах произведена настройка адресации согласно плана:__ 
+__В качестве коммутаторов - Nexus 9000v. В качестве роутера - CSR-1000v. На устройствах произведена настройка адресации согласно плана:__ 
 
 |Device|Interface|IP Address|Description|
 |---|---|---|---|
@@ -108,7 +108,7 @@ interface Vlan200
 
 ```
 
-** Vlan 500,600 заводим под взаимодействие с роутером** 
+__Vlan 500,600 заводим под взаимодействие с роутером__
 
 ```
 interface Vlan500
@@ -126,7 +126,7 @@ interface Vlan600
   no ipv6 redirects
 ```
 
-** Настройка VxLAN** 
+__Настройка VxLAN__
 ```
 interface nve1
   no shutdown
@@ -144,7 +144,7 @@ interface nve1
   member vni 10200 associate-vrf
 ```
 
-** Настройка маршрутизации** 
+__Настройка маршрутизации__
 ```
 router bgp 65000
   address-family l2vpn evpn
@@ -177,7 +177,7 @@ router bgp 65000
 
 ### 2.2 Настройка VPC для отказоустойчивого взаимодействия с роутером
 
-** Leaf** 
+__Leaf__
 
 ```
 vpc domain 1
@@ -217,7 +217,7 @@ interface Ethernet1/7
 
 ### 2.3 Настройка роутера
 
-** Настройка portchannel** 
+__Настройка portchannel__
 ```
 interface Port-channel50
  no ip address
@@ -248,7 +248,7 @@ interface GigabitEthernet2
  channel-group 50 mode active
 
 ```
-**  Настройка маршрутизации с агрегированием ** 
+__Настройка маршрутизации с агрегированием__
 ```
 router bgp 55000
  bgp log-neighbor-changes
@@ -263,7 +263,7 @@ router bgp 55000
 
 ### 3. Проверка
 
-**  Trace VPC между TENANT идет через роутер ** 
+__Trace VPC между TENANT идет через роутер__
 ```
 VPCS> show
 
@@ -294,7 +294,7 @@ trace to 192.168.10.20, 8 hops max, press Ctrl+C to stop
 
 ```
 
-Таблица маршрутизации на Leaf1. В VRF присутствует суммированный маршрут до другого тенанта
+__Таблица маршрутизации на Leaf1. В VRF присутствует суммированный маршрут до другого тенанта__
 
 ```
 IP Route Table for VRF "TENANT-1"
@@ -354,4 +354,3 @@ IP Route Table for VRF "TENANT-2"
 ```
 
 
-Т
