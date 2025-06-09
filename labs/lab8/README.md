@@ -248,7 +248,7 @@ interface GigabitEthernet2
  channel-group 50 mode active
 
 ```
-Настройка маршрутизации с агрегированием
+####### Настройка маршрутизации с агрегированием
 ```
 router bgp 55000
  bgp log-neighbor-changes
@@ -263,7 +263,7 @@ router bgp 55000
 
 ### 3. Проверка
 
-# Trace VPC между TENANT идет через роутер
+####### Trace VPC между TENANT идет через роутер
 ```
 VPCS> show
 
