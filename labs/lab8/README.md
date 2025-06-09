@@ -263,7 +263,7 @@ router bgp 55000
 
 ### 3. Проверка
 
-Trace VPC между TENANT идет через роутер
+# Trace VPC между TENANT идет через роутер
 ```
 VPCS> show
 
