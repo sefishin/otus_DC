@@ -37,229 +37,115 @@ VPC1.2|Eth0|192.168.30.10/24|TENANT-2|
 VPC2.1|Eth0|192.168.10.20/24|TENANT-1|
 VPC2.2|Eth0|192.168.20.20/24|TENANT-1|
 
-### 2.1 Настройка L3 VNI
+### 2.1 Настройка тенантов на Leaf
 
-В добавление к лабораторной №5 настраивается дополнительный vlan и vni:
-
-```
-
-Leaf-1(config)#vlan 20
-Leaf-1(config)#vn-segment 10020
-
-Leaf-1(config)# int vlan 20
-Leaf-1(config-if)# no sh
-Leaf-1(config-if)# vrf member TEST
-Leaf-1(config-if)# ip address 192.168.20.1/24
-Leaf-1(config-if)# fabric forwarding mode anycast-gateway
-
-
-Leaf-1(config-if)# int nve 1
-Leaf-1(config-if-nve)# member vni 10020
-Leaf-1(config-if-nve-vni)# ingress-replication protocol bgp
-Leaf-1(config-if-nve-vni)# exit
+Настройка на базе лабораторной №6. На лифах заводим vlan и vrf под два тенанта: 
 
 ```
 
-
-### 2.2 Полные конфигурации устройств
-
-Spine1
-
-```
-version 9.3(1) Bios:version
-switchname Spine-1
-vdc Spine-1 id 1
-  limit-resource vlan minimum 16 maximum 4094
-  limit-resource vrf minimum 2 maximum 4096
-  limit-resource port-channel minimum 0 maximum 511
-  limit-resource u4route-mem minimum 248 maximum 248
-  limit-resource u6route-mem minimum 96 maximum 96
-  limit-resource m4route-mem minimum 58 maximum 58
-  limit-resource m6route-mem minimum 8 maximum 8
-
-no feature ssh
-nv overlay evpn
-feature ospf
-feature bgp
-feature nv overlay
-
-no password strength-check
-username admin password 5 $5$W0y86Dzq$VYqcG2rmHXwwsRgeGsDANo0IkJiGypiqbg.szV0Mt9
-9  role network-admin
-ip domain-lookup
-no system default switchport
-snmp-server user admin network-admin auth md5 0x72a08c95012f25aad4ac2eff6e974ef1
- priv 0x72a08c95012f25aad4ac2eff6e974ef1 localizedkey
-rmon event 1 description FATAL(1) owner PMON@FATAL
-rmon event 2 description CRITICAL(2) owner PMON@CRITICAL
-rmon event 3 description ERROR(3) owner PMON@ERROR
-rmon event 4 description WARNING(4) owner PMON@WARNING
-rmon event 5 description INFORMATION(5) owner PMON@INFO
-
-vlan 1
-
-vrf context management
-
-interface Ethernet1/1
-  ip address 10.2.1.0/31
-  ip ospf network point-to-point
-  ip router ospf 1 area 0.0.0.0
-  no shutdown
-
-interface Ethernet1/2
-  ip address 10.2.1.2/31
-  ip ospf network point-to-point
-  ip router ospf 1 area 0.0.0.0
-  no shutdown
-
-interface Ethernet1/3
-
-...
-
-interface Ethernet1/128
-
-interface mgmt0
-  vrf member management
-
-interface loopback0
-  ip address 11.11.11.11/32
-  ip router ospf 1 area 0.0.0.0
-line console
-line vty
-router ospf 1
-  router-id 11.11.11.11
-router bgp 65000
-  address-family l2vpn evpn
-  neighbor 1.1.1.1
-    remote-as 65000
-    update-source loopback0
-    address-family l2vpn evpn
-      send-community
-      send-community extended
-  neighbor 2.2.2.2
-    remote-as 65000
-    update-source loopback0
-    address-family l2vpn evpn
-      send-community
-      send-community extended
-      route-reflector-client
-
-
-
-```
-
-Leaf1
-
-```
-version 9.3(1) Bios:version
-switchname Leaf-1
-vdc Leaf-1 id 1
-  limit-resource vlan minimum 16 maximum 4094
-  limit-resource vrf minimum 2 maximum 4096
-  limit-resource port-channel minimum 0 maximum 511
-  limit-resource u4route-mem minimum 248 maximum 248
-  limit-resource u6route-mem minimum 96 maximum 96
-  limit-resource m4route-mem minimum 58 maximum 58
-  limit-resource m6route-mem minimum 8 maximum 8
-
-no feature ssh
-nv overlay evpn
-feature ospf
-feature bgp
-feature fabric forwarding
-feature interface-vlan
-feature vn-segment-vlan-based
-feature nv overlay
-
-no password strength-check
-username admin password 5 $5$kIg7CrSN$gIjQQRaKfj3wihCghlc69z8zji6.RBlWIqat.xX2at
-C  role network-admin
-ip domain-lookup
-no system default switchport
-copp profile strict
-snmp-server user admin auth md5 0x899fa8779e43ff9f657e345fe48e5e72 priv 0x899fa8
-779e43ff9f657e345fe48e5e72 localizedkey engineID 128:0:0:9:3:80:48:52:2:204:0
-rmon event 1 description FATAL(1) owner PMON@FATAL
-rmon event 2 description CRITICAL(2) owner PMON@CRITICAL
-rmon event 3 description ERROR(3) owner PMON@ERROR
-rmon event 4 description WARNING(4) owner PMON@WARNING
-rmon event 5 description INFORMATION(5) owner PMON@INFO
-
-fabric forwarding anycast-gateway-mac 0000.0000.0001
-vlan 1,10,20,100
+vlan 1,10,20,30,100,200,500,600
 vlan 10
   vn-segment 10010
 vlan 20
   vn-segment 10020
+vlan 30
+  vn-segment 10030
 vlan 100
-  vn-segment 100
+  vn-segment 10100
+vlan 200
+  vn-segment 10200
 
-vrf context TEST
-  vni 100
+vrf context TENANT-1
+  vni 10100
   rd auto
   address-family ipv4 unicast
     route-target both auto
     route-target both auto evpn
-vrf context management
-
-interface Vlan1
+vrf context TENANT-2
+  vni 10200
+  rd auto
+  address-family ipv4 unicast
+    route-target both auto
+    route-target both auto evpn
 
 interface Vlan10
   no shutdown
-  vrf member TEST
+  vrf member TENANT-1
+  no ip redirects
   ip address 192.168.10.1/24
+  no ipv6 redirects
   fabric forwarding mode anycast-gateway
 
 interface Vlan20
   no shutdown
-  vrf member TEST
+  vrf member TENANT-1
+  no ip redirects
   ip address 192.168.20.1/24
+  no ipv6 redirects
+  fabric forwarding mode anycast-gateway
+
+interface Vlan30
+  no shutdown
+  vrf member TENANT-2
+  no ip redirects
+  ip address 192.168.30.1/24
+  no ipv6 redirects
   fabric forwarding mode anycast-gateway
 
 interface Vlan100
   no shutdown
-  vrf member TEST
+  vrf member TENANT-1
+  no ip redirects
   ip forward
+  no ipv6 redirects
 
+interface Vlan200
+  no shutdown
+  vrf member TENANT-2
+  no ip redirects
+  ip forward
+  no ipv6 redirects
+
+```
+
+Vlan 500,600 заводим под взаимодействие с роутером
+
+```
+interface Vlan500
+  no shutdown
+  vrf member TENANT-1
+  no ip redirects
+  ip address 10.50.50.2/29
+  no ipv6 redirects
+
+interface Vlan600
+  no shutdown
+  vrf member TENANT-2
+  no ip redirects
+  ip address 10.60.60.2/29
+  no ipv6 redirects
+```
+
+Настройка VxLAN
+```
 interface nve1
   no shutdown
   host-reachability protocol bgp
+  advertise virtual-rmac
   source-interface loopback0
   member vni 100 associate-vrf
   member vni 10010
     ingress-replication protocol bgp
   member vni 10020
     ingress-replication protocol bgp
+  member vni 10030
+    ingress-replication protocol bgp
+  member vni 10100 associate-vrf
+  member vni 10200 associate-vrf
+```
 
-interface Ethernet1/1
-  ip address 10.2.1.1/31
-  ip ospf network point-to-point
-  ip router ospf 1 area 0.0.0.0
-  no shutdown
-
-interface Ethernet1/2
-  switchport
-  switchport access vlan 10
-
-interface Ethernet1/3
-  switchport
-  switchport access vlan 20
-
-
-...
-
-interface Ethernet1/128
-
-interface mgmt0
-  vrf member management
-
-interface loopback0
-  ip address 1.1.1.1/32
-  ip router ospf 1 area 0.0.0.0
-line console
-line vty
-router ospf 1
-  router-id 1.1.1.1
+Настройка маршрутизации
+```
 router bgp 65000
   address-family l2vpn evpn
   neighbor 11.11.11.11
@@ -268,217 +154,204 @@ router bgp 65000
     address-family l2vpn evpn
       send-community
       send-community extended
-
+  vrf TENANT-1
+    address-family ipv4 unicast
+      redistribute direct route-map PERMIT
+      redistribute hmm route-map PERMIT
+    neighbor 10.50.50.3
+      remote-as 55000
+      address-family ipv4 unicast
+    neighbor 172.16.0.1
+      remote-as 65001
+      address-family ipv4 unicast
+  vrf TENANT-2
+    address-family ipv4 unicast
+      redistribute direct route-map PERMIT
+      redistribute hmm route-map PERMIT
+    neighbor 10.60.60.3
+      remote-as 55000
+      address-family ipv4 unicast
 
 ```
 
-Leaf2
+
+### 2.2 Настройка VPC для отказоустойчивого взаимодействия с роутером
+
+Leaf
 
 ```
-version 9.3(1) Bios:version
-switchname Leaf-2
-vdc Leaf-2 id 1
-  limit-resource vlan minimum 16 maximum 4094
-  limit-resource vrf minimum 2 maximum 4096
-  limit-resource port-channel minimum 0 maximum 511
-  limit-resource u4route-mem minimum 248 maximum 248
-  limit-resource u6route-mem minimum 96 maximum 96
-  limit-resource m4route-mem minimum 58 maximum 58
-  limit-resource m6route-mem minimum 8 maximum 8
+vpc domain 1
+  peer-switch
+  peer-keepalive destination 192.168.250.0
+  peer-gateway
+  layer3 peer-router
+  ip arp synchronize
 
-no feature ssh
-nv overlay evpn
-feature ospf
-feature bgp
-feature fabric forwarding
-feature interface-vlan
-feature vn-segment-vlan-based
-feature nv overlay
-
-no password strength-check
-username admin password 5 $5$xo.rexaD$ITvOJ.j6./AQdpu3w90daeHaW1fYL46KOlgVYmCn/P
-.  role network-admin
-ip domain-lookup
-no system default switchport
-snmp-server user admin network-admin auth md5 0x038347264d1f462ed75c0f2ce97b8564
- priv 0x038347264d1f462ed75c0f2ce97b8564 localizedkey
-rmon event 1 description FATAL(1) owner PMON@FATAL
-rmon event 2 description CRITICAL(2) owner PMON@CRITICAL
-rmon event 3 description ERROR(3) owner PMON@ERROR
-rmon event 4 description WARNING(4) owner PMON@WARNING
-rmon event 5 description INFORMATION(5) owner PMON@INFO
-
-fabric forwarding anycast-gateway-mac 0000.0000.0001
-vlan 1,10,20,100
-vlan 10
-  vn-segment 10010
-vlan 20
-  vn-segment 10020
-vlan 100
-  vn-segment 100
-
-vrf context TEST
-  vni 100
-  rd auto
-  address-family ipv4 unicast
-    route-target both auto
-    route-target both auto evpn
-vrf context management
-
-interface Vlan1
-
-interface Vlan10
-  no shutdown
-  vrf member TEST
-  ip address 192.168.10.1/24
-  fabric forwarding mode anycast-gateway
-
-interface Vlan20
-  no shutdown
-  vrf member TEST
-  ip address 192.168.20.1/24
-  fabric forwarding mode anycast-gateway
-
-interface Vlan100
-  no shutdown
-  vrf member TEST
-  ip forward
-
-interface nve1
-  no shutdown
-  host-reachability protocol bgp
-  source-interface loopback0
-  member vni 100 associate-vrf
-  member vni 10010
-    ingress-replication protocol bgp
-  member vni 10020
-    ingress-replication protocol bgp
-
-interface Ethernet1/1
-  ip address 10.2.1.3/31
-  ip ospf network point-to-point
-  ip router ospf 1 area 0.0.0.0
-  no shutdown
-
-interface Ethernet1/2
+interface port-channel50
   switchport
-  switchport access vlan 10
+  switchport mode trunk
+  vpc 50
 
-interface Ethernet1/3
+interface port-channel100
   switchport
-  switchport access vlan 20
+  switchport mode trunk
+  spanning-tree port type network
+  vpc peer-link
 
 
-...
+interface Ethernet1/5
+  switchport
+  switchport mode trunk
+  channel-group 50 mode active
 
-interface Ethernet1/128
+interface Ethernet1/6
+  switchport
+  switchport mode trunk
+  channel-group 100 mode active
 
-interface mgmt0
-  vrf member management
+interface Ethernet1/7
+  switchport
+  switchport mode trunk
+  channel-group 100 mode active
+```
 
-interface loopback0
-  ip address 2.2.2.2/32
-  ip router ospf 1 area 0.0.0.0
-line console
-line vty
-router ospf 1
-  router-id 2.2.2.2
-router bgp 65000
-  address-family l2vpn evpn
-  neighbor 11.11.11.11
-    remote-as 65000
-    update-source loopback0
-    address-family l2vpn evpn
-      send-community
-      send-community extended
+### 2.3 Настройка роутера
+
+Настройка portchannel
+```
+interface Port-channel50
+ no ip address
+ no negotiation auto
+ no mop enabled
+ no mop sysid
+!
+interface Port-channel50.500
+ encapsulation dot1Q 500
+ ip address 10.50.50.3 255.255.255.248
+!
+interface Port-channel50.600
+ encapsulation dot1Q 600
+ ip address 10.60.60.3 255.255.255.248
+ 
+ interface GigabitEthernet1
+ no ip address
+ negotiation auto
+ no mop enabled
+ no mop sysid
+ channel-group 50 mode active
+!
+interface GigabitEthernet2
+ no ip address
+ negotiation auto
+ no mop enabled
+ no mop sysid
+ channel-group 50 mode active
+
+```
+Настройка маршрутизации с агрегированием
+```
+router bgp 55000
+ bgp log-neighbor-changes
+ aggregate-address 192.168.0.0 255.255.0.0
+ redistribute connected
+ neighbor 10.50.50.1 remote-as 65000
+ neighbor 10.50.50.2 remote-as 65000
+ neighbor 10.60.60.1 remote-as 65000
+ neighbor 10.60.60.2 remote-as 65000
+```
+
+
+### 3. Проверка
+
+Trace VPC между TENANT идет через роутер
+```
+VPCS> show
+
+NAME   IP/MASK              GATEWAY                             GATEWAY
+VPCS1  192.168.30.10/24     192.168.30.1
+       fe80::250:79ff:fe66:68eb/64
+
+VPCS> trace 192.168.10.10
+trace to 192.168.10.10, 8 hops max, press Ctrl+C to stop
+ 1   192.168.30.1   6.483 ms  6.557 ms  11.975 ms
+ 2   10.60.60.3   21.824 ms  18.675 ms  18.502 ms
+ 3   10.50.50.1   30.187 ms  28.858 ms  32.301 ms
+ 4   *192.168.10.10   52.322 ms (ICMP type:3, code:3, Destination port unreachable)
+
+VPCS> trace 192.168.20.20
+trace to 192.168.20.20, 8 hops max, press Ctrl+C to stop
+ 1   192.168.30.1   6.871 ms  7.653 ms  7.826 ms
+ 2   10.60.60.3   20.214 ms  20.527 ms  19.658 ms
+ 3   10.50.50.1   50.466 ms  33.861 ms  43.365 ms
+ 4   *192.168.20.20   62.701 ms (ICMP type:3, code:3, Destination port unreachable)
+
+VPCS> trace 192.168.10.20
+trace to 192.168.10.20, 8 hops max, press Ctrl+C to stop
+ 1   192.168.30.1   6.378 ms  6.165 ms  6.225 ms
+ 2   10.60.60.3   23.449 ms  21.250 ms  29.684 ms
+ 3   10.50.50.1   143.893 ms  26.589 ms  25.538 ms
+ 4   *192.168.10.20   31.661 ms (ICMP type:3, code:3, Destination port unreachable)
 
 ```
 
-### 3. Проверка L3-связности
-
-Пинг между VPC в разных VLAN, подключенными к разным VTEP
-```
-VPCS>  ip 192.168.10.10/24 192.168.10.1
-Checking for duplicate address...
-PC1 : 192.168.10.10 255.255.255.0 gateway 192.168.10.1
-
-VPCS> ping 192.168.10.20
-
-84 bytes from 192.168.10.20 icmp_seq=1 ttl=64 time=20.346 ms
-84 bytes from 192.168.10.20 icmp_seq=2 ttl=64 time=23.255 ms
-^C
-VPCS> ping 192.168.20.10
-
-84 bytes from 192.168.20.10 icmp_seq=1 ttl=63 time=15.235 ms
-84 bytes from 192.168.20.10 icmp_seq=2 ttl=63 time=14.456 ms
-^C
-VPCS> ping 192.168.20.20
-
-84 bytes from 192.168.20.20 icmp_seq=1 ttl=62 time=31.800 ms
-84 bytes from 192.168.20.20 icmp_seq=2 ttl=62 time=22.940 ms
-```
-
-Таблица маршрутизации на Leaf1
+Таблица маршрутизации на Leaf1. В VRF присутствует суммированный маршрут до другого тенанта
 
 ```
-Leaf-1# sh ip route vrf TEST
-IP Route Table for VRF "TEST"
+IP Route Table for VRF "TENANT-1"
 '*' denotes best ucast next-hop
 '**' denotes best mcast next-hop
 '[x/y]' denotes [preference/metric]
 '%<string>' in via output denotes VRF <string>
 
+8.8.8.8/32, ubest/mbest: 1/0
+    *via 10.50.50.3, [20/0], 02:08:28, bgp-65000, external, tag 55000
+10.50.50.0/29, ubest/mbest: 1/0, attached
+    *via 10.50.50.2, Vlan500, [0/0], 20:02:09, direct
+10.50.50.2/32, ubest/mbest: 1/0, attached
+    *via 10.50.50.2, Vlan500, [0/0], 20:02:09, local
+10.60.60.0/29, ubest/mbest: 1/0
+    *via 10.50.50.3, [20/0], 02:08:28, bgp-65000, external, tag 55000
+192.168.0.0/16, ubest/mbest: 1/0
+    *via 10.50.50.3, [20/0], 02:08:28, bgp-65000, external, tag 55000
 192.168.10.0/24, ubest/mbest: 1/0, attached
-    *via 192.168.10.1, Vlan10, [0/0], 05:46:50, direct
+    *via 192.168.10.1, Vlan10, [0/0], 20:02:09, direct
 192.168.10.1/32, ubest/mbest: 1/0, attached
-    *via 192.168.10.1, Vlan10, [0/0], 05:46:50, local
+    *via 192.168.10.1, Vlan10, [0/0], 20:02:09, local
 192.168.10.10/32, ubest/mbest: 1/0, attached
-    *via 192.168.10.10, Vlan10, [190/0], 00:38:04, hmm
-192.168.10.20/32, ubest/mbest: 1/0
-    *via 2.2.2.2%default, [200/0], 05:16:20, bgp-65000, internal, tag 65000 (evp
-n) segid: 100 tunnelid: 0x2020202 encap: VXLAN
-
+    *via 192.168.10.10, Vlan10, [190/0], 01:04:30, hmm
+192.168.10.20/32, ubest/mbest: 1/0, attached
+    *via 192.168.10.20, Vlan10, [190/0], 00:43:00, hmm
 192.168.20.0/24, ubest/mbest: 1/0, attached
-    *via 192.168.20.1, Vlan20, [0/0], 00:40:16, direct
+    *via 192.168.20.1, Vlan20, [0/0], 20:02:09, direct
 192.168.20.1/32, ubest/mbest: 1/0, attached
-    *via 192.168.20.1, Vlan20, [0/0], 00:40:16, local
-192.168.20.10/32, ubest/mbest: 1/0, attached
-    *via 192.168.20.10, Vlan20, [190/0], 00:19:07, hmm
-192.168.20.20/32, ubest/mbest: 1/0
-    *via 2.2.2.2%default, [200/0], 00:15:55, bgp-65000, internal, tag 65000 (evp
-n) segid: 100 tunnelid: 0x2020202 encap: VXLAN
+    *via 192.168.20.1, Vlan20, [0/0], 20:02:09, local
+192.168.20.20/32, ubest/mbest: 1/0, attached
+    *via 192.168.20.20, Vlan20, [190/0], 00:43:00, hmm
+
+IP Route Table for VRF "TENANT-2"
+'*' denotes best ucast next-hop
+'**' denotes best mcast next-hop
+'[x/y]' denotes [preference/metric]
+'%<string>' in via output denotes VRF <string>
+
+8.8.8.8/32, ubest/mbest: 1/0
+    *via 10.60.60.3, [20/0], 03:25:18, bgp-65000, external, tag 55000
+10.50.50.0/29, ubest/mbest: 1/0
+    *via 10.60.60.3, [20/0], 03:25:18, bgp-65000, external, tag 55000
+10.60.60.0/29, ubest/mbest: 1/0, attached
+    *via 10.60.60.2, Vlan600, [0/0], 20:02:09, direct
+10.60.60.2/32, ubest/mbest: 1/0, attached
+    *via 10.60.60.2, Vlan600, [0/0], 20:02:09, local
+192.168.0.0/16, ubest/mbest: 1/0
+    *via 10.60.60.3, [20/0], 03:02:23, bgp-65000, external, tag 55000
+192.168.30.0/24, ubest/mbest: 1/0, attached
+    *via 192.168.30.1, Vlan30, [0/0], 20:02:09, direct
+192.168.30.1/32, ubest/mbest: 1/0, attached
+    *via 192.168.30.1, Vlan30, [0/0], 20:02:09, local
+192.168.30.10/32, ubest/mbest: 1/0, attached
+    *via 192.168.30.10, Vlan30, [190/0], 01:05:10, hmm
 
 ```
 
 
-Таблица Host Mobility Manager
-```
-Leaf-1# sh fabric forwarding ip local-host-db vrf TEST
-
-HMM host IPv4 routing table information for VRF TEST
-Status: *-valid, x-deleted, D-Duplicate, DF-Duplicate and frozen,
-        c-cleaned in 00:07:00
-
-    Host                 MAC Address        SVI        Flags      Physical Inter
-face
-*   192.168.10.10/32     0050.7966.68e5     Vlan10     0x420201   Ethernet1/2
-*   192.168.20.10/32     0050.7966.68eb     Vlan20     0x420201   Ethernet1/3
-```
-
-Таблица L2RIB 
-```
-Leaf-1# sh l2route evpn mac-ip all
-Flags -(Rmac):Router MAC (Stt):Static (L):Local (R):Remote (V):vPC link
-(Dup):Duplicate (Spl):Split (Rcv):Recv(D):Del Pending (S):Stale (C):Clear
-(Ps):Peer Sync (Ro):Re-Originated (Orp):Orphan
-Topology    Mac Address    Host IP                                 Prod   Flags         Seq No     Next-Hops
------------ -------------- --------------------------------------- ------ ---------- ---------- ---------------------------------------
-10          0050.7966.68e5 192.168.10.10                           HMM    L,            0         Local
-10          0050.7966.68e6 192.168.10.20                           BGP    --            0         2.2.2.2
-20          0050.7966.68eb 192.168.20.10                           HMM    L,            0         Local
-20          0050.7966.68ea 192.168.20.20                           BGP    --            0         2.2.2.2
-
-```
-
-
-
+Т
