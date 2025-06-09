@@ -17,7 +17,7 @@
 
 ![img_2](Scheme_Eve_ip.jpg)
 
-В качестве коммутаторов - Nexus 9000v. На устройствах произведена настройка адресации согласно плана: 
+В качестве коммутаторов - Nexus 9000v. В качестве роутера - CSR-1000v. На устройствах произведена настройка адресации согласно плана: 
 
 |Device|Interface|IP Address|Description|
 |---|---|---|---|
@@ -25,14 +25,17 @@ Spine1|Lo0|11.11.11.11/32|
 -|Eth1|10.2.1.0/31|Link to Leaf1|
 -|Eth2|10.2.1.2/31|Link to Leaf2|
 Leaf1|Lo0|1.1.1.1/32|
--|Eth1|10.2.1.1/31|Link to Spine1|
--|Eth2|VLAN 10|Link to VPC1|
--|Eth3|VLAN 20|Link to VPC1.1|
+-|Eth1/1|10.2.1.1/31|Link to Spine1|
+-|Eth1/2|VLAN 10|Link to VPC1.1|
+-|Eth1/3|VLAN 30|Link to VPC1.2|
 Leaf2|Lo0|2.2.2.2/32|
--|Eth1|10.2.1.3/31|Link to Spine1|
--|Eth2|VLAN 10|Link to VPC2|
--|Eth3|VLAN 20|Link to VPC2.2|
-
+-|Eth1/1|10.2.1.3/31|Link to Spine1|
+-|Eth1/2|VLAN 10|Link to VPC2.1|
+-|Eth1/3|VLAN 30|Link to VPC2.2|
+VPC1.1|Eth0|192.168.10.10/24|TENANT-1|
+VPC1.2|Eth0|192.168.30.10/24|TENANT-2|
+VPC2.1|Eth0|192.168.10.20/24|TENANT-1|
+VPC2.2|Eth0|192.168.20.20/24|TENANT-1|
 
 ### 2.1 Настройка L3 VNI
 
