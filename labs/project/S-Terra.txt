@@ -1,0 +1,215 @@
+S-Terra-Gate#sh ru
+!
+version 12.4
+no service password-encryption
+!
+crypto ipsec df-bit copy
+crypto isakmp identity dn
+crypto isakmp fragmentation
+crypto isakmp session-time-max 180
+crypto isakmp security-association lifetime delta 10
+crypto isakmp initiator-sessions-max 100
+crypto isakmp responder-sessions-max 100
+crypto ipsec security-association lifetime kilobytes unlimited
+crypto isakmp keepalive 3
+crypto isakmp keepalive retry-count 5
+username cscons privilege 15 password 0 csp
+aaa new-model
+!
+aaa authentication login RADIUS_LIST group RADIUS_GROUP
+radius server radius1
+ address ipv4 192.168.100.10 auth-port 1812 acct-port 1813
+ key name radius1_key
+ timeout 2
+!
+radius server radius2
+ address ipv4 192.168.100.20 auth-port 1812 acct-port 1813
+ key name radius2_key
+ timeout 2
+!
+aaa group server radius RADIUS_GROUP
+ server radius1
+ server radius2
+!
+!
+hostname S-Terra-Gate
+enable password csp
+!
+crypto pki certificate map CLIENTS_NO_XAUTH 1
+ subject-name co CN=client-w
+!
+!
+!
+!
+logging trap debugging
+!
+!
+crypto isakmp policy 1
+ encr magma
+ hash stribog-256
+ authentication gost-sig
+ group vko2
+!
+crypto isakmp policy 2
+ encr gost
+ hash gost341112-256-tc26
+ authentication gost-sig
+ group vko2
+!
+crypto isakmp profile CLIENTS_PROFILE
+ match identity dn
+ set identity mapping
+ set policy 1
+ set policy 2
+ client authentication xauth otp
+ client authentication banner "Enter your credentials."
+ client authentication list RADIUS_LIST
+ client username cert-subj-cn
+!
+crypto isakmp profile CLIENTS_PROFILE_NO_XAUTH
+ match certificate CLIENTS_NO_XAUTH
+ set identity mapping
+ set policy 1
+ set policy 2
+ client authentication xauth
+!
+ip local pool IKECFG_POOL_NO_XAUTH 192.168.255.100 192.168.255.254
+!
+crypto ipsec transform-set MAGMA_GOST_ENCRYPT_AND_INTEGRITY esp-magma-mgm
+!
+crypto ipsec transform-set GOST_ENCRYPT_AND_INTEGRITY esp-gost28147-4m-imit
+!
+object-group network SELF
+ remark WAN IP
+ host 172.16.100.2
+!
+ip access-list extended FW_INPUT_WAN
+ permit udp any object-group SELF eq isakmp
+ permit udp any object-group SELF eq non500-isakmp
+ permit icmp any object-group SELF
+ permit esp any object-group SELF
+!
+ip access-list extended TENANT-2_CLIENTS
+ permit ip 192.168.10.0 0.0.0.255 192.168.255.0 0.0.0.255
+ permit ip 192.168.20.0 0.0.0.255 192.168.255.0 0.0.0.255
+!
+ip access-list extended TENANT-1_CLIENTS
+ permit ip 192.168.30.0 0.0.0.255 192.168.255.0 0.0.0.255
+!
+ipv6 default filtering deny
+!
+!
+ip inspect tcp sessions-max 256000
+ip inspect udp sessions-max 65536
+ip inspect name INSPECT tcp
+ip inspect name INSPECT udp
+!
+crypto dynamic-map DMAP 2
+ match address TENANT-1_CLIENTS
+ set transform-set MAGMA_GOST_ENCRYPT_AND_INTEGRITY GOST_ENCRYPT_AND_INTEGRITY
+ set isakmp-profile CLIENTS_PROFILE_NO_XAUTH
+ set pool IKECFG_POOL_NO_XAUTH
+ set security-association mss-fix out
+ reverse-route
+ set pre-fragmentation
+ set dead-connection history off
+crypto dynamic-map DMAP 3
+ match address TENANT-2_CLIENTS
+ set transform-set MAGMA_GOST_ENCRYPT_AND_INTEGRITY GOST_ENCRYPT_AND_INTEGRITY
+ set isakmp-profile CLIENTS_PROFILE
+ set security-association mss-fix out
+ reverse-route
+ set pre-fragmentation
+ set dead-connection history off
+!
+crypto map VPN 1 ipsec-isakmp dynamic DMAP
+!
+interface GigabitEthernet0/0
+ no ip address
+!
+interface GigabitEthernet0/1
+ ip address 172.16.100.2 255.255.255.0
+ ip access-group FW_INPUT_WAN in
+ crypto map VPN
+ ip inspect INSPECT out
+!
+interface GigabitEthernet0/2
+ no ip address
+!
+interface GigabitEthernet0/3
+ ip address 192.168.100.1 255.255.255.0
+!
+interface Port-Channel50
+ ip address 192.168.200.1 255.255.255.0
+!
+interface Port-Channel50.500
+ ip address 10.50.50.3 255.255.255.0
+!
+interface Port-Channel50.600
+ ip address 10.60.60.3 255.255.255.0
+!
+!
+ip route 0.0.0.0 0.0.0.0 172.16.100.1
+!
+!
+crypto pki trustpoint s-terra_technological_trustpoint
+ revocation-check none
+crypto pki certificate chain s-terra_technological_trustpoint
+certificate 01
+308201F7308201A2A003020102020101300C06082A850307010103020500306F
+314930470603550403134055505365727665722056504E204341206365727469
+6669636174652030643133313664312D343762352D346337302D613463642D64
+32366264616536643839353110300E060355040B130750726573616C65311030
+0E060355040A1307532D5465727261301E170D3235303230373038313234375A
+170D3335303230373038313234375A306F314930470603550403134055505365
+727665722056504E204341206365727469666963617465203064313331366431
+2D343762352D346337302D613463642D6432366264616536643839353110300E
+060355040B130750726573616C653110300E060355040A1307532D5465727261
+3066301F06082A85030701010101301306072A85030202230106082A85030701
+01020203430004403B7C168C1B00DBF082622440B3E988FDD4B5B72DFFD92762
+D9CAE811E9D0A6A31CC5786FCC71F1424049930E8CA214066D47FA23148326FB
+17313930D9A2EAF2A320301E300B0603551D0F040403020186300F0603551D13
+0101FF040530030101FF300C06082A850307010103020500034100B1BE63D80C
+39E63FD7DBDB40394855152C78420EE1A4153B59B1BBE2267314C15C8BBA5BA8
+947D6BF5FDEDDCFEE50EC2C3A499902CD030CE9103D77084913C32
+
+quit
+!
+end
+
+
+root@S-Terra-Gate:~# vtysh
+
+Hello, this is FRRouting (version 9.0.4).
+Copyright 1996-2005 Kunihiro Ishiguro, et al.
+
+S-Terra-Gate# sh ru
+Building configuration...
+
+Current configuration:
+!
+frr version 9.0.4
+frr defaults traditional
+hostname S-Terra-Gate
+log syslog informational
+no ipv6 forwarding
+service integrated-vtysh-config
+!
+router bgp 55000
+ bgp log-neighbor-changes
+ no bgp ebgp-requires-policy
+ coalesce-time 1000
+ no bgp network import-check
+ neighbor 10.50.50.1 remote-as 65000
+ neighbor 10.50.50.2 remote-as 65000
+ neighbor 10.60.60.1 remote-as 65000
+ neighbor 10.60.60.2 remote-as 65000
+ !
+ address-family ipv4 unicast
+  redistribute kernel
+  redistribute connected
+ exit-address-family
+exit
+!
+end
+

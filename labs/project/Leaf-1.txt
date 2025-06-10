@@ -1,0 +1,490 @@
+Leaf-1#   sh ru
+
+!Command: show running-config
+!Running configuration last done at: Tue Jun 10 19:52:33 2025
+!Time: Tue Jun 10 20:07:54 2025
+
+version 9.3(1) Bios:version
+switchname Leaf-1
+vdc Leaf-1 id 1
+  limit-resource vlan minimum 16 maximum 4094
+  limit-resource vrf minimum 2 maximum 4096
+  limit-resource port-channel minimum 0 maximum 511
+  limit-resource u4route-mem minimum 248 maximum 248
+  limit-resource u6route-mem minimum 96 maximum 96
+  limit-resource m4route-mem minimum 58 maximum 58
+  limit-resource m6route-mem minimum 8 maximum 8
+
+no feature ssh
+cfs eth distribute
+nv overlay evpn
+feature ospf
+feature bgp
+feature fabric forwarding
+feature interface-vlan
+feature vn-segment-vlan-based
+feature lacp
+feature vpc
+feature nv overlay
+
+no password strength-check
+username admin password 5 $5$kIg7CrSN$gIjQQRaKfj3wihCghlc69z8zji6.RBlWIqat.xX2at
+C  role network-admin
+ip domain-lookup
+no system default switchport
+copp profile strict
+snmp-server user admin auth md5 0x899fa8779e43ff9f657e345fe48e5e72 priv 0x899fa8
+779e43ff9f657e345fe48e5e72 localizedkey engineID 128:0:0:9:3:80:48:52:2:204:0
+rmon event 1 description FATAL(1) owner PMON@FATAL
+rmon event 2 description CRITICAL(2) owner PMON@CRITICAL
+rmon event 3 description ERROR(3) owner PMON@ERROR
+rmon event 4 description WARNING(4) owner PMON@WARNING
+rmon event 5 description INFORMATION(5) owner PMON@INFO
+
+fabric forwarding anycast-gateway-mac 0000.0000.0001
+vlan 1,10,20,30,100,200,500,600
+vlan 10
+  vn-segment 10010
+vlan 20
+  vn-segment 10020
+vlan 30
+  vn-segment 10030
+vlan 100
+  vn-segment 10100
+vlan 200
+  vn-segment 10200
+
+route-map DENY deny 20
+route-map PERMIT permit 10
+vrf context TENANT-1
+  vni 10100
+  rd auto
+  address-family ipv4 unicast
+    route-target both auto
+    route-target both auto evpn
+vrf context TENANT-2
+  vni 10200
+  rd auto
+  address-family ipv4 unicast
+    route-target both auto
+    route-target both auto evpn
+vrf context TEST
+  vni 100
+  rd auto
+  address-family ipv4 unicast
+    route-target both auto
+    route-target both auto evpn
+vrf context management
+vpc domain 1
+  peer-switch
+  peer-keepalive destination 192.168.250.0
+  peer-gateway
+  layer3 peer-router
+  ip arp synchronize
+
+
+interface Vlan1
+  no ip redirects
+  no ipv6 redirects
+
+interface Vlan10
+  no shutdown
+  vrf member TENANT-1
+  no ip redirects
+  ip address 192.168.10.1/24
+  no ipv6 redirects
+  fabric forwarding mode anycast-gateway
+
+interface Vlan20
+  no shutdown
+  vrf member TENANT-1
+  no ip redirects
+  ip address 192.168.20.1/24
+  no ipv6 redirects
+  fabric forwarding mode anycast-gateway
+
+interface Vlan30
+  no shutdown
+  vrf member TENANT-2
+  no ip redirects
+  ip address 192.168.30.1/24
+  no ipv6 redirects
+  fabric forwarding mode anycast-gateway
+
+interface Vlan100
+  no shutdown
+  vrf member TENANT-1
+  no ip redirects
+  ip forward
+  no ipv6 redirects
+
+interface Vlan200
+  no shutdown
+  vrf member TENANT-2
+  no ip redirects
+  ip forward
+  no ipv6 redirects
+
+interface Vlan500
+  no shutdown
+  vrf member TENANT-1
+  no ip redirects
+  ip address 10.50.50.2/29
+  no ipv6 redirects
+
+interface Vlan600
+  no shutdown
+  vrf member TENANT-2
+  no ip redirects
+  ip address 10.60.60.2/29
+  no ipv6 redirects
+
+interface port-channel1
+  switchport
+  switchport mode trunk
+  vpc 1
+
+interface port-channel2
+
+interface port-channel50
+  switchport
+  switchport mode trunk
+  vpc 50
+
+interface port-channel100
+  switchport
+  switchport mode trunk
+  spanning-tree port type network
+  vpc peer-link
+
+interface nve1
+  no shutdown
+  host-reachability protocol bgp
+  advertise virtual-rmac
+  source-interface loopback0
+  member vni 100 associate-vrf
+  member vni 10010
+    ingress-replication protocol bgp
+  member vni 10020
+    ingress-replication protocol bgp
+  member vni 10030
+    ingress-replication protocol bgp
+  member vni 10100 associate-vrf
+  member vni 10200 associate-vrf
+
+interface Ethernet1/1
+  ip address 10.2.1.1/31
+  ip ospf network point-to-point
+  ip router ospf 1 area 0.0.0.0
+  no shutdown
+
+interface Ethernet1/2
+  switchport
+  switchport mode trunk
+  switchport trunk allowed vlan 10,20
+
+interface Ethernet1/3
+  switchport
+  switchport access vlan 30
+
+interface Ethernet1/4
+  switchport
+  switchport mode trunk
+  switchport trunk allowed vlan 10,30
+
+interface Ethernet1/5
+  switchport
+  switchport mode trunk
+  channel-group 50 mode active
+
+interface Ethernet1/6
+  switchport
+  switchport mode trunk
+  channel-group 100 mode active
+
+interface Ethernet1/7
+  switchport
+  switchport mode trunk
+  channel-group 100 mode active
+
+interface Ethernet1/8
+  switchport
+  switchport access vlan 30
+
+interface Ethernet1/9
+
+interface Ethernet1/10
+
+interface Ethernet1/11
+
+interface Ethernet1/12
+
+interface Ethernet1/13
+
+interface Ethernet1/14
+
+interface Ethernet1/15
+
+interface Ethernet1/16
+
+interface Ethernet1/17
+
+interface Ethernet1/18
+
+interface Ethernet1/19
+
+interface Ethernet1/20
+
+interface Ethernet1/21
+
+interface Ethernet1/22
+
+interface Ethernet1/23
+
+interface Ethernet1/24
+
+interface Ethernet1/25
+
+interface Ethernet1/26
+
+interface Ethernet1/27
+
+interface Ethernet1/28
+
+interface Ethernet1/29
+
+interface Ethernet1/30
+
+interface Ethernet1/31
+
+interface Ethernet1/32
+
+interface Ethernet1/33
+
+interface Ethernet1/34
+
+interface Ethernet1/35
+
+interface Ethernet1/36
+
+interface Ethernet1/37
+
+interface Ethernet1/38
+
+interface Ethernet1/39
+
+interface Ethernet1/40
+
+interface Ethernet1/41
+
+interface Ethernet1/42
+
+interface Ethernet1/43
+
+interface Ethernet1/44
+
+interface Ethernet1/45
+
+interface Ethernet1/46
+
+interface Ethernet1/47
+
+interface Ethernet1/48
+
+interface Ethernet1/49
+
+interface Ethernet1/50
+
+interface Ethernet1/51
+
+interface Ethernet1/52
+
+interface Ethernet1/53
+
+interface Ethernet1/54
+
+interface Ethernet1/55
+
+interface Ethernet1/56
+
+interface Ethernet1/57
+
+interface Ethernet1/58
+
+interface Ethernet1/59
+
+interface Ethernet1/60
+
+interface Ethernet1/61
+
+interface Ethernet1/62
+
+interface Ethernet1/63
+
+interface Ethernet1/64
+
+interface Ethernet1/65
+
+interface Ethernet1/66
+
+interface Ethernet1/67
+
+interface Ethernet1/68
+
+interface Ethernet1/69
+
+interface Ethernet1/70
+
+interface Ethernet1/71
+
+interface Ethernet1/72
+
+interface Ethernet1/73
+
+interface Ethernet1/74
+
+interface Ethernet1/75
+
+interface Ethernet1/76
+
+interface Ethernet1/77
+
+interface Ethernet1/78
+
+interface Ethernet1/79
+
+interface Ethernet1/80
+
+interface Ethernet1/81
+
+interface Ethernet1/82
+
+interface Ethernet1/83
+
+interface Ethernet1/84
+
+interface Ethernet1/85
+
+interface Ethernet1/86
+
+interface Ethernet1/87
+
+interface Ethernet1/88
+
+interface Ethernet1/89
+
+interface Ethernet1/90
+
+interface Ethernet1/91
+
+interface Ethernet1/92
+
+interface Ethernet1/93
+
+interface Ethernet1/94
+
+interface Ethernet1/95
+
+interface Ethernet1/96
+
+interface Ethernet1/97
+
+interface Ethernet1/98
+
+interface Ethernet1/99
+
+interface Ethernet1/100
+
+interface Ethernet1/101
+
+interface Ethernet1/102
+
+interface Ethernet1/103
+
+interface Ethernet1/104
+
+interface Ethernet1/105
+
+interface Ethernet1/106
+
+interface Ethernet1/107
+
+interface Ethernet1/108
+
+interface Ethernet1/109
+
+interface Ethernet1/110
+
+interface Ethernet1/111
+
+interface Ethernet1/112
+
+interface Ethernet1/113
+
+interface Ethernet1/114
+
+interface Ethernet1/115
+
+interface Ethernet1/116
+
+interface Ethernet1/117
+
+interface Ethernet1/118
+
+interface Ethernet1/119
+
+interface Ethernet1/120
+
+interface Ethernet1/121
+
+interface Ethernet1/122
+
+interface Ethernet1/123
+
+interface Ethernet1/124
+
+interface Ethernet1/125
+
+interface Ethernet1/126
+
+interface Ethernet1/127
+
+interface Ethernet1/128
+
+interface mgmt0
+  vrf member management
+  ip address 192.168.250.1/31
+
+interface loopback0
+  ip address 1.1.1.1/32
+  ip address 23.23.23.23/32 secondary
+  ip router ospf 1 area 0.0.0.0
+line console
+line vty
+router ospf 1
+  router-id 1.1.1.1
+router bgp 65000
+  address-family l2vpn evpn
+  neighbor 11.11.11.11
+    remote-as 65000
+    update-source loopback0
+    address-family l2vpn evpn
+      send-community
+      send-community extended
+  vrf TENANT-1
+    address-family ipv4 unicast
+      redistribute direct route-map PERMIT
+      redistribute hmm route-map PERMIT
+    neighbor 10.50.50.3
+      remote-as 55000
+      address-family ipv4 unicast
+  vrf TENANT-2
+    address-family ipv4 unicast
+      redistribute direct route-map PERMIT
+      redistribute hmm route-map PERMIT
+    neighbor 10.60.60.3
+      remote-as 55000
+      address-family ipv4 unicast
+
+
+
