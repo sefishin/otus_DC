@@ -122,7 +122,7 @@ interface Vlan200
 
 ```
 
-__Vlan 500,600 заводим под взаимодействие с роутером__
+__Vlan 500,600 заводим под взаимодействие с S-Terra__
 
 ```
 interface Vlan500
@@ -175,9 +175,6 @@ router bgp 65000
     neighbor 10.50.50.3
       remote-as 55000
       address-family ipv4 unicast
-    neighbor 172.16.0.1
-      remote-as 65001
-      address-family ipv4 unicast
   vrf TENANT-2
     address-family ipv4 unicast
       redistribute direct route-map PERMIT
@@ -185,11 +182,10 @@ router bgp 65000
     neighbor 10.60.60.3
       remote-as 55000
       address-family ipv4 unicast
-
 ```
 
 
-### 2.2 Настройка VPC для отказоустойчивого взаимодействия с роутером
+### 2.2 Настройка VPC для отказоустойчивого взаимодействия с S-Terra
 
 __Leaf__
 
@@ -233,46 +229,148 @@ interface Ethernet1/7
 
 __Настройка portchannel__
 ```
-interface Port-channel50
- no ip address
- no negotiation auto
- no mop enabled
- no mop sysid
 !
-interface Port-channel50.500
- encapsulation dot1Q 500
- ip address 10.50.50.3 255.255.255.248
+interface Port-Channel50
 !
-interface Port-channel50.600
- encapsulation dot1Q 600
- ip address 10.60.60.3 255.255.255.248
- 
- interface GigabitEthernet1
- no ip address
- negotiation auto
- no mop enabled
- no mop sysid
- channel-group 50 mode active
+interface Port-Channel50.500
+ ip address 10.50.50.3 255.255.255.0
 !
-interface GigabitEthernet2
- no ip address
- negotiation auto
- no mop enabled
- no mop sysid
- channel-group 50 mode active
+interface Port-Channel50.600
+ ip address 10.60.60.3 255.255.255.0
+
+
+root@S-Terra-Gate:~# cat /etc/network/interfaces.d/bond50
+auto bond50
+iface bond50 inet static
+mtu 1500
+slaves eth0 eth2
+bond_mode 802.3ad
+bond_miimon 100
+
+root@S-Terra-Gate:~# cat /etc/network/interfaces.d/bond50.500
+auto bond50.500
+iface bond50.500 inet static
+address 10.50.50.3
+netmask 255.255.255.0
+mtu 1500
+
+root@S-Terra-Gate:~# cat /etc/network/interfaces.d/bond50.600
+
+auto bond50.600
+iface bond50.600 inet static
+address 10.60.60.3
+netmask 255.255.255.0
+mtu 1500
+
 
 ```
-__Настройка маршрутизации с агрегированием__
+__Настройка маршрутизации__
 ```
+frr version 9.0.4
+frr defaults traditional
+hostname S-Terra-Gate
+log syslog informational
+no ipv6 forwarding
+service integrated-vtysh-config
+!
 router bgp 55000
  bgp log-neighbor-changes
- aggregate-address 192.168.0.0 255.255.0.0
- redistribute connected
+ no bgp ebgp-requires-policy
+ coalesce-time 1000
+ no bgp network import-check
  neighbor 10.50.50.1 remote-as 65000
  neighbor 10.50.50.2 remote-as 65000
  neighbor 10.60.60.1 remote-as 65000
  neighbor 10.60.60.2 remote-as 65000
+ !
+ address-family ipv4 unicast
+  redistribute kernel
+  redistribute connected
+ exit-address-family
+exit
+!
+end
+
 ```
+__Настройка шифрования__
+
+Для примера задано два профиля аутентификации - с радиус сервером и без.
+
+```
+crypto isakmp policy 1
+ encr magma
+ hash stribog-256
+ authentication gost-sig
+ group vko2
+!
+crypto isakmp policy 2
+ encr gost
+ hash gost341112-256-tc26
+ authentication gost-sig
+ group vko2
+!
+crypto isakmp profile CLIENTS_PROFILE
+ match identity dn
+ set identity mapping
+ set policy 1
+ set policy 2
+ client authentication xauth otp
+ client authentication banner "Enter your credentials."
+ client authentication list RADIUS_LIST
+ client username cert-subj-cn
+!
+crypto isakmp profile CLIENTS_PROFILE_NO_XAUTH
+ match certificate CLIENTS_NO_XAUTH
+ set identity mapping
+ set policy 1
+ set policy 2
+ client authentication xauth
+```
+
+Доступ клиентов к разным тенантам описан в ACL
+
+```
+ip access-list extended TENANT-2_CLIENTS
+ permit ip 192.168.10.0 0.0.0.255 192.168.255.0 0.0.0.255
+ permit ip 192.168.20.0 0.0.0.255 192.168.255.0 0.0.0.255
+!
+ip access-list extended TENANT-1_CLIENTS
+ permit ip 192.168.30.0 0.0.0.255 192.168.255.0 0.0.0.255
+```
+
+Для каждого тенанта задана криптокарта, описывающая шифруемый трафик, используемые алгоритмы,
+профиль с привязкой к сертификату и методу аутентификации. При подключении ip клиента попадает
+в таблицу маршрутизации и передается дифам по BGP.
+
+```
+crypto dynamic-map DMAP 2
+ match address TENANT-1_CLIENTS
+ set transform-set MAGMA_GOST_ENCRYPT_AND_INTEGRITY GOST_ENCRYPT_AND_INTEGRITY
+ set isakmp-profile CLIENTS_PROFILE_NO_XAUTH
+ set pool IKECFG_POOL_NO_XAUTH
+ set security-association mss-fix out
+ reverse-route
+ set pre-fragmentation
+ set dead-connection history off
+crypto dynamic-map DMAP 3
+ match address TENANT-2_CLIENTS
+ set transform-set MAGMA_GOST_ENCRYPT_AND_INTEGRITY GOST_ENCRYPT_AND_INTEGRITY
+ set isakmp-profile CLIENTS_PROFILE
+ set security-association mss-fix out
+ reverse-route
+ set pre-fragmentation
+ set dead-connection history off
+!
+crypto map VPN 1 ipsec-isakmp dynamic DMAP
+!
+!
+interface GigabitEthernet0/1
+ ip address 172.16.100.2 255.255.255.0
+ ip access-group FW_INPUT_WAN in
+ crypto map VPN
+```
+
+Полная конфигурация в приложенном файле S-Terra.txt. Настройка VPN-клиентов согласно вендорской документации https://doc.s-terra.ru/rh_output/5.0/Scenarios/output/index.htm#t=mergedProjects%2Fver_5_0_scn_1_06_client_xauth%2Fver_5_0_scn_1_06_client_xauth.htm.
 
 
 ### 3. Проверка
@@ -282,89 +380,23 @@ __Trace VPC между TENANT идет через роутер__
 VPCS> show
 
 NAME   IP/MASK              GATEWAY                             GATEWAY
-VPCS1  192.168.30.10/24     192.168.30.1
-       fe80::250:79ff:fe66:68eb/64
+VPCS1  192.168.10.20/24     192.168.10.1
+       fe80::250:79ff:fe66:68e6/64
 
-VPCS> trace 192.168.10.10
-trace to 192.168.10.10, 8 hops max, press Ctrl+C to stop
- 1   192.168.30.1   6.483 ms  6.557 ms  11.975 ms
- 2   10.60.60.3   21.824 ms  18.675 ms  18.502 ms
- 3   10.50.50.1   30.187 ms  28.858 ms  32.301 ms
- 4   *192.168.10.10   52.322 ms (ICMP type:3, code:3, Destination port unreachable)
-
-VPCS> trace 192.168.20.20
-trace to 192.168.20.20, 8 hops max, press Ctrl+C to stop
- 1   192.168.30.1   6.871 ms  7.653 ms  7.826 ms
- 2   10.60.60.3   20.214 ms  20.527 ms  19.658 ms
- 3   10.50.50.1   50.466 ms  33.861 ms  43.365 ms
- 4   *192.168.20.20   62.701 ms (ICMP type:3, code:3, Destination port unreachable)
-
-VPCS> trace 192.168.10.20
-trace to 192.168.10.20, 8 hops max, press Ctrl+C to stop
- 1   192.168.30.1   6.378 ms  6.165 ms  6.225 ms
- 2   10.60.60.3   23.449 ms  21.250 ms  29.684 ms
- 3   10.50.50.1   143.893 ms  26.589 ms  25.538 ms
- 4   *192.168.10.20   31.661 ms (ICMP type:3, code:3, Destination port unreachable)
+VPCS> trace 192.168.30.10
+trace to 192.168.30.10, 8 hops max, press Ctrl+C to stop
+ 1   192.168.10.1   6.870 ms  6.323 ms  6.673 ms
+ 2   10.50.50.3   13.667 ms  12.230 ms  15.762 ms
+ 3   10.60.60.1   19.326 ms  23.132 ms  22.254 ms
+ 4   *192.168.30.10   43.365 ms (ICMP type:3, code:3, Destination port unreachable)
 
 ```
 
-__Таблица маршрутизации на Leaf1. В VRF присутствует суммированный маршрут до другого тенанта__
+__Ping с клиента TENANT-1__
 
-```
-IP Route Table for VRF "TENANT-1"
-'*' denotes best ucast next-hop
-'**' denotes best mcast next-hop
-'[x/y]' denotes [preference/metric]
-'%<string>' in via output denotes VRF <string>
+![img_1](DC3.jpg)
 
-8.8.8.8/32, ubest/mbest: 1/0
-    *via 10.50.50.3, [20/0], 02:08:28, bgp-65000, external, tag 55000
-10.50.50.0/29, ubest/mbest: 1/0, attached
-    *via 10.50.50.2, Vlan500, [0/0], 20:02:09, direct
-10.50.50.2/32, ubest/mbest: 1/0, attached
-    *via 10.50.50.2, Vlan500, [0/0], 20:02:09, local
-10.60.60.0/29, ubest/mbest: 1/0
-    *via 10.50.50.3, [20/0], 02:08:28, bgp-65000, external, tag 55000
-192.168.0.0/16, ubest/mbest: 1/0
-    *via 10.50.50.3, [20/0], 02:08:28, bgp-65000, external, tag 55000
-192.168.10.0/24, ubest/mbest: 1/0, attached
-    *via 192.168.10.1, Vlan10, [0/0], 20:02:09, direct
-192.168.10.1/32, ubest/mbest: 1/0, attached
-    *via 192.168.10.1, Vlan10, [0/0], 20:02:09, local
-192.168.10.10/32, ubest/mbest: 1/0, attached
-    *via 192.168.10.10, Vlan10, [190/0], 01:04:30, hmm
-192.168.10.20/32, ubest/mbest: 1/0, attached
-    *via 192.168.10.20, Vlan10, [190/0], 00:43:00, hmm
-192.168.20.0/24, ubest/mbest: 1/0, attached
-    *via 192.168.20.1, Vlan20, [0/0], 20:02:09, direct
-192.168.20.1/32, ubest/mbest: 1/0, attached
-    *via 192.168.20.1, Vlan20, [0/0], 20:02:09, local
-192.168.20.20/32, ubest/mbest: 1/0, attached
-    *via 192.168.20.20, Vlan20, [190/0], 00:43:00, hmm
+__Ping с клиента TENANT-2__
 
-IP Route Table for VRF "TENANT-2"
-'*' denotes best ucast next-hop
-'**' denotes best mcast next-hop
-'[x/y]' denotes [preference/metric]
-'%<string>' in via output denotes VRF <string>
-
-8.8.8.8/32, ubest/mbest: 1/0
-    *via 10.60.60.3, [20/0], 03:25:18, bgp-65000, external, tag 55000
-10.50.50.0/29, ubest/mbest: 1/0
-    *via 10.60.60.3, [20/0], 03:25:18, bgp-65000, external, tag 55000
-10.60.60.0/29, ubest/mbest: 1/0, attached
-    *via 10.60.60.2, Vlan600, [0/0], 20:02:09, direct
-10.60.60.2/32, ubest/mbest: 1/0, attached
-    *via 10.60.60.2, Vlan600, [0/0], 20:02:09, local
-192.168.0.0/16, ubest/mbest: 1/0
-    *via 10.60.60.3, [20/0], 03:02:23, bgp-65000, external, tag 55000
-192.168.30.0/24, ubest/mbest: 1/0, attached
-    *via 192.168.30.1, Vlan30, [0/0], 20:02:09, direct
-192.168.30.1/32, ubest/mbest: 1/0, attached
-    *via 192.168.30.1, Vlan30, [0/0], 20:02:09, local
-192.168.30.10/32, ubest/mbest: 1/0, attached
-    *via 192.168.30.10, Vlan30, [190/0], 01:05:10, hmm
-
-```
-
+![img_1](DC2.jpg)
 
