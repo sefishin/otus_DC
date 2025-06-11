@@ -390,6 +390,45 @@ trace to 192.168.30.10, 8 hops max, press Ctrl+C to stop
  3   10.60.60.1   19.326 ms  23.132 ms  22.254 ms
  4   *192.168.30.10   43.365 ms (ICMP type:3, code:3, Destination port unreachable)
 
+
+__Таблица маршрутизации на шлюзе содержит маршруты лифов и маршрут до ip клиента__
+
+```
+
+root@S-Terra-Gate:~# ip route
+default via 172.16.100.1 dev eth1 proto st_policy
+10.10.10.0/24 dev st_vti0 proto kernel scope link src 10.10.10.1
+10.10.11.0/24 dev st_vti1 proto kernel scope link src 10.10.11.1
+10.50.50.0/24 dev bond50.500 proto kernel scope link src 10.50.50.3
+10.60.60.0/24 dev bond50.600 proto kernel scope link src 10.60.60.3
+172.16.100.0/24 dev eth1 proto kernel scope link src 172.16.100.2
+192.168.10.0/24 nhid 51 proto bgp metric 20
+        nexthop via 10.50.50.1 dev bond50.500 weight 1
+        nexthop via 10.50.50.2 dev bond50.500 weight 1
+192.168.10.10 nhid 51 proto bgp metric 20
+        nexthop via 10.50.50.1 dev bond50.500 weight 1
+        nexthop via 10.50.50.2 dev bond50.500 weight 1
+192.168.10.20 nhid 51 proto bgp metric 20
+        nexthop via 10.50.50.1 dev bond50.500 weight 1
+        nexthop via 10.50.50.2 dev bond50.500 weight 1
+192.168.20.0/24 nhid 51 proto bgp metric 20
+        nexthop via 10.50.50.1 dev bond50.500 weight 1
+        nexthop via 10.50.50.2 dev bond50.500 weight 1
+192.168.20.20 nhid 51 proto bgp metric 20
+        nexthop via 10.50.50.1 dev bond50.500 weight 1
+        nexthop via 10.50.50.2 dev bond50.500 weight 1
+192.168.30.0/24 nhid 47 proto bgp metric 20
+        nexthop via 10.60.60.1 dev bond50.600 weight 1
+        nexthop via 10.60.60.2 dev bond50.600 weight 1
+192.168.30.10 nhid 47 proto bgp metric 20
+        nexthop via 10.60.60.1 dev bond50.600 weight 1
+        nexthop via 10.60.60.2 dev bond50.600 weight 1
+192.168.100.0/24 dev eth3 proto kernel scope link src 192.168.100.1
+192.168.200.0/24 dev bond50 proto kernel scope link src 192.168.200.1
+192.168.254.2 via 172.16.100.1 dev eth1 proto st_rri
+192.168.255.100 via 172.16.100.1 dev eth1 proto st_rri
+
+
 ```
 
 __Ping с клиента TENANT-1__
