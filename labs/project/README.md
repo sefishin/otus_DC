@@ -429,11 +429,11 @@ default via 172.16.100.1 dev eth1 proto st_policy
 192.168.255.100 via 172.16.100.1 dev eth1 proto st_rri
 ```
 
-__Ping с клиента TENANT-1__
+__Ping с клиента TENANT-1 до VPC1.1 и VPC2.2__
 
 ![img_1](DC3.jpg)
 
-__Ping с клиента TENANT-2__
+__Ping с клиента TENANT-2 до VPC1.2__
 
 ![img_1](DC2.jpg)
 
