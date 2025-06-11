@@ -375,7 +375,7 @@ interface GigabitEthernet0/1
 
 ### 3. Проверка
 
-__Trace VPC1.2 между TENANT идет через роутер__
+__Trace VPC1.2 между TENANT идет через С-Терру__
 ```
 VPCS> show
 
