@@ -393,7 +393,7 @@ trace to 192.168.30.10, 8 hops max, press Ctrl+C to stop
 
 __Таблица маршрутизации на шлюзе содержит маршруты лифов и маршрут до ip клиента__
 
-```
+
 
 root@S-Terra-Gate:~# ip route
 default via 172.16.100.1 dev eth1 proto st_policy
@@ -428,8 +428,6 @@ default via 172.16.100.1 dev eth1 proto st_policy
 192.168.254.2 via 172.16.100.1 dev eth1 proto st_rri
 192.168.255.100 via 172.16.100.1 dev eth1 proto st_rri
 
-
-```
 
 __Ping с клиента TENANT-1__
 
